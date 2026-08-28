@@ -15,9 +15,9 @@ export class GameHud {
   private shop: ShopUI;
 
   constructor(hudRoot: HTMLElement, private world: World) {
-    this.driveHud = new DriveHud(hudRoot, world.state);
-    this.pedestrianHud = new WalkHud(hudRoot, { mode: "pedestrian", label: "Piéton", badgeClass: "tt-badge-pedestrian" }, world.state);
-    this.swimHud = new WalkHud(hudRoot, { mode: "swim", label: "Nage", badgeClass: "tt-badge-swim" }, world.state);
+    this.driveHud = new DriveHud(hudRoot, world.state, world.input);
+    this.pedestrianHud = new WalkHud(hudRoot, { mode: "pedestrian", label: "Piéton", badgeClass: "tt-badge-pedestrian" }, world.state, world.input);
+    this.swimHud = new WalkHud(hudRoot, { mode: "swim", label: "Nage", badgeClass: "tt-badge-swim" }, world.state, world.input);
     this.toast = new ToastStack(hudRoot, world.state);
     this.wheelBanner = new WheelBannerUI(hudRoot, world.wheel);
     this.shop = new ShopUI(hudRoot, (def) => {

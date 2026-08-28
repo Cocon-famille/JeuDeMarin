@@ -4,6 +4,7 @@ import { InputManager } from "../core/InputManager";
 import { WheelManager } from "../core/WheelManager";
 import { VehicleDef } from "./VehicleCatalog";
 import { buildVehicleMesh } from "./VehicleMeshFactory";
+import { addPlates } from "./Plate";
 import { isInWater, zoneAt } from "./Terrain";
 
 const MAX_SPEED = 22; // m/s casual arcade top speed, not a real vehicle's
@@ -19,10 +20,13 @@ export class Vehicle {
   heading = 0;
   private blinkerPhase = 0;
   private beaconAngle = 0;
+  private state: GameState;
 
-  constructor(def: VehicleDef, scene: THREE.Scene) {
+  constructor(def: VehicleDef, scene: THREE.Scene, state: GameState) {
     this.def = def;
+    this.state = state;
     const built = buildVehicleMesh(def);
+    addPlates(built.group, built.length / 2, state.playerName, state.plate);
     this.object.add(built.group);
     scene.add(this.object);
   }
@@ -39,8 +43,23 @@ export class Vehicle {
     this.object.clear();
     this.def = def;
     const built = buildVehicleMesh(def);
+    addPlates(built.group, built.length / 2, this.state.playerName, this.state.plate);
     this.object.add(built.group);
     scene.add(this.object);
+  }
+
+  /** Re-draws the front/rear plate textures after the player edits name/plate. */
+  refreshPlate() {
+    const front = this.object.getObjectByName("plateFront") as THREE.Mesh | undefined;
+    const rear = this.object.getObjectByName("plateRear") as THREE.Mesh | undefined;
+    if (!front || !rear) return;
+    const halfLength = front.position.z;
+    this.object.remove(front, rear);
+    front.geometry.dispose();
+    (front.material as THREE.MeshBasicMaterial).map?.dispose();
+    (front.material as THREE.Material).dispose();
+    (rear.material as THREE.Material).dispose();
+    addPlates(this.object, halfLength, this.state.playerName, this.state.plate);
   }
 
   update(dt: number, input: InputManager, wheel: WheelManager, state: GameState) {
@@ -73,26 +92,33 @@ export class Vehicle {
   private updateLights(dt: number, state: GameState) {
     this.blinkerPhase = (this.blinkerPhase + dt) % 0.9;
     const blinkOn = this.blinkerPhase < 0.45;
-    const l = this.object.getObjectByName("blinkerL") as THREE.Mesh | undefined;
-    const r = this.object.getObjectByName("blinkerR") as THREE.Mesh | undefined;
-    const head = this.object.getObjectByName("headlight") as THREE.Mesh | undefined;
-    const beacon = this.object.getObjectByName("beacon") as THREE.Mesh | undefined;
 
     const leftOn = (state.blinker === "left" || state.blinker === "warning") && blinkOn;
     const rightOn = (state.blinker === "right" || state.blinker === "warning") && blinkOn;
-    setEmissive(l, leftOn ? 2.2 : 0);
-    setEmissive(r, rightOn ? 2.2 : 0);
-    setEmissive(head, state.headlightsOn ? 1.5 : 0);
+    for (const suffix of ["_front", "_rear"]) {
+      setEmissive(this.object.getObjectByName(`blinkerL${suffix}`), leftOn ? 2.4 : 0);
+      setEmissive(this.object.getObjectByName(`blinkerR${suffix}`), rightOn ? 2.4 : 0);
+    }
 
+    setEmissive(this.object.getObjectByName("headlightL"), state.headlightsOn ? 2 : 0);
+    setEmissive(this.object.getObjectByName("headlightR"), state.headlightsOn ? 2 : 0);
+    setEmissive(this.object.getObjectByName("taillightL"), state.headlightsOn ? 1.6 : 0.2);
+    setEmissive(this.object.getObjectByName("taillightR"), state.headlightsOn ? 1.6 : 0.2);
+
+    const spot = this.object.getObjectByName("headlightSpot") as THREE.SpotLight | undefined;
+    if (spot) spot.intensity = state.headlightsOn ? 4 : 0;
+
+    const beacon = this.object.getObjectByName("beacon");
     if (beacon) {
       this.beaconAngle += dt * 6;
-      setEmissive(beacon, state.beaconOn ? (Math.sin(this.beaconAngle) > 0 ? 2.5 : 0.2) : 0);
+      setEmissive(beacon, state.beaconOn ? (Math.sin(this.beaconAngle) > 0 ? 3 : 0.2) : 0);
     }
   }
 }
 
-function setEmissive(mesh: THREE.Mesh | undefined, intensity: number) {
-  if (!mesh) return;
+function setEmissive(obj: THREE.Object3D | null | undefined, intensity: number) {
+  const mesh = obj as THREE.Mesh | undefined;
+  if (!mesh || !("material" in mesh)) return;
   const mat = mesh.material as THREE.MeshStandardMaterial;
   mat.emissiveIntensity = intensity;
 }

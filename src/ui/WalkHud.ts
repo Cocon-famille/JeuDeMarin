@@ -1,6 +1,8 @@
 import { GameState, Mode } from "../core/GameState";
+import { InputManager } from "../core/InputManager";
 import { copy } from "../content/copy";
 import { el } from "./dom";
+import { Joystick } from "./Joystick";
 
 interface WalkHudConfig {
   mode: Extract<Mode, "pedestrian" | "swim">;
@@ -18,11 +20,13 @@ export class WalkHud {
   private infoTitle: HTMLElement;
   private infoSub: HTMLElement;
   private prompt: HTMLElement;
+  private promptKey: string | null = null;
   private gaugeRow: HTMLElement;
   private gaugeFill: HTMLElement;
   private gaugeMeta: HTMLElement;
+  readonly joystick: Joystick;
 
-  constructor(parent: HTMLElement, private cfg: WalkHudConfig, private state: GameState) {
+  constructor(parent: HTMLElement, private cfg: WalkHudConfig, private state: GameState, private input: InputManager) {
     this.root = el("div", { className: "tt-hud" });
 
     const topbar = el("div", { className: "tt-topbar", attrs: { style: "justify-content:flex-end;" } });
@@ -45,19 +49,33 @@ export class WalkHud {
     this.infoCard.append(this.infoTitle, this.infoSub);
 
     this.prompt = el("div", { className: "tt-prompt tt-hidden" });
-
-    const stick = el("div", { className: "tt-stick" });
-    stick.append(el("div", { className: "tt-stick-nub" }));
+    this.prompt.addEventListener("click", () => {
+      if (this.promptKey) this.input.pressVirtual(`Key${this.promptKey}`);
+    });
 
     const side = el("div", { className: "tt-side-actions" });
     if (cfg.mode === "pedestrian") {
-      side.append(el("span", { className: "tt-pill", text: copy.ui.run }), el("span", { className: "tt-pill", text: copy.ui.interact }));
+      const run = el("span", { className: "tt-pill", text: copy.ui.run });
+      const interact = el("span", { className: "tt-pill", text: copy.ui.interact });
+      run.addEventListener("pointerdown", () => (this.input.touchRunning = true));
+      run.addEventListener("pointerup", () => (this.input.touchRunning = false));
+      run.addEventListener("pointercancel", () => (this.input.touchRunning = false));
+      interact.addEventListener("click", () => this.input.pressVirtual("KeyE"));
+      side.append(run, interact);
     } else {
-      side.append(el("span", { className: "tt-pill", text: copy.ui.dive }), el("span", { className: "tt-pill", text: copy.ui.surface }));
+      const dive = el("span", { className: "tt-pill", text: copy.ui.dive });
+      const surface = el("span", { className: "tt-pill", text: copy.ui.surface });
+      dive.addEventListener("pointerdown", () => (this.input.touchDiving = true));
+      dive.addEventListener("pointerup", () => (this.input.touchDiving = false));
+      dive.addEventListener("pointercancel", () => (this.input.touchDiving = false));
+      surface.addEventListener("click", () => (this.input.touchDiving = false));
+      side.append(dive, surface);
     }
 
-    this.root.append(topbar, this.gaugeRow, this.infoCard, this.prompt, stick, side);
+    this.root.append(topbar, this.gaugeRow, this.infoCard, this.prompt, side);
     parent.appendChild(this.root);
+
+    this.joystick = new Joystick(this.root, input);
   }
 
   showInfo(title: string, sub: string) {
@@ -71,6 +89,7 @@ export class WalkHud {
   }
 
   setPrompt(text: string | null, key?: string) {
+    this.promptKey = key ?? null;
     if (!text) {
       this.prompt.classList.add("tt-hidden");
       return;

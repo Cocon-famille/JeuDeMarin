@@ -9,11 +9,30 @@ const TERRAIN_TAGS: { id: Terrain; label: string; cls: string }[] = [
   { id: "ville", label: copy.ui.city, cls: "tt-tag-ville" },
 ];
 
+const NAME_KEY = "tractopolis.playerName";
+const PLATE_KEY = "tractopolis.plate";
+
+function readStored(key: string): string {
+  try {
+    return localStorage.getItem(key) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeStored(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // stockage indisponible (navigation privée, etc.) — tant pis, pas bloquant
+  }
+}
+
 export class TitleScreen {
   readonly root: HTMLElement;
   private selected: Terrain = "ferme";
 
-  constructor(parent: HTMLElement, onPlay: (terrain: Terrain) => void) {
+  constructor(parent: HTMLElement, onPlay: (terrain: Terrain, name: string, plate: string) => void) {
     this.root = el("div", { className: "tt-screen" });
     this.root.append(el("div", { className: "tt-screen-grid" }), el("div", { className: "tt-screen-glow" }));
 
@@ -24,6 +43,13 @@ export class TitleScreen {
     brandRow.append(logo);
 
     const baseline = el("div", { className: "tt-title-baseline", text: copy.brand.baseline });
+
+    const fields = el("div", { className: "tt-title-fields" });
+    const nameInput = el("input", { className: "tt-field", attrs: { type: "text", placeholder: "Ton nom", maxlength: "18" } }) as HTMLInputElement;
+    const plateInput = el("input", { className: "tt-field", attrs: { type: "text", placeholder: "Ta plaque (ex: TRACTO-01)", maxlength: "12" } }) as HTMLInputElement;
+    nameInput.value = readStored(NAME_KEY);
+    plateInput.value = readStored(PLATE_KEY);
+    fields.append(nameInput, plateInput);
 
     const actions = el("div", { className: "tt-title-actions" });
     const play = el("div", { className: "tt-btn-primary", text: copy.ui.play.toUpperCase() });
@@ -42,10 +68,16 @@ export class TitleScreen {
     });
     tags.append(...tagEls);
 
-    play.addEventListener("click", () => onPlay(this.selected));
+    play.addEventListener("click", () => {
+      const name = nameInput.value.trim();
+      const plate = plateInput.value.trim();
+      writeStored(NAME_KEY, name);
+      writeStored(PLATE_KEY, plate);
+      onPlay(this.selected, name, plate);
+    });
     choose.addEventListener("click", () => tags.scrollIntoView({ behavior: "smooth" }));
 
-    this.root.append(brandRow, baseline, actions, tags);
+    this.root.append(brandRow, baseline, fields, actions, tags);
     parent.appendChild(this.root);
   }
 

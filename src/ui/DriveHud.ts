@@ -1,8 +1,10 @@
 import { GameState, Terrain } from "../core/GameState";
+import { InputManager } from "../core/InputManager";
 import { VehicleDef } from "../world/VehicleCatalog";
 import { copy } from "../content/copy";
 import { el } from "./dom";
 import { GearboxUI } from "./GearboxUI";
+import { Joystick } from "./Joystick";
 
 const ZONE_LABEL: Record<Terrain, string> = { ferme: "FERME", chantier: "CHANTIER", ville: "VILLE" };
 const ZONE_COLOR: Record<Terrain, string> = { ferme: "#8fbf4a", chantier: "#e2761b", ville: "#5aa9ff" };
@@ -21,8 +23,9 @@ export class DriveHud {
   private btnRight: HTMLElement;
   private controlsRow!: HTMLElement;
   readonly gearbox: GearboxUI;
+  readonly joystick: Joystick;
 
-  constructor(parent: HTMLElement, private state: GameState) {
+  constructor(parent: HTMLElement, private state: GameState, private input: InputManager) {
     this.root = el("div", { className: "tt-hud" });
 
     const topbar = el("div", { className: "tt-topbar" });
@@ -46,6 +49,7 @@ export class DriveHud {
     this.cta.style.color = "#0c1017";
     ctaKey.style.background = "rgba(12,16,23,0.22)";
     ctaKey.style.color = "#0c1017";
+    this.cta.addEventListener("click", () => this.input.pressVirtual("KeyF"));
 
     this.controlsRow = el("div", { className: "tt-controls-row" });
     const controls = this.controlsRow;
@@ -64,6 +68,7 @@ export class DriveHud {
     parent.appendChild(this.root);
 
     this.gearbox = new GearboxUI(this.root, state);
+    this.joystick = new Joystick(this.root, input);
   }
 
   private warningIcon(): HTMLElement {
@@ -105,6 +110,7 @@ export class DriveHud {
     // Volant branché : le HUD s'allège, les 4 boutons tactiles s'effacent,
     // seuls les témoins de clignotants/phares restent visibles.
     this.controlsRow.classList.toggle("tt-hidden", this.state.wheelConnected);
+    this.joystick.setVisible(!this.state.wheelConnected);
   }
 
   setVisible(visible: boolean) {

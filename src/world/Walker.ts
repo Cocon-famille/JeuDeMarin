@@ -54,7 +54,7 @@ export class Walker {
     this.object.position.addScaledVector(dir, input.throttle * speed * dt);
 
     if (state.mode === "swim") {
-      const diving = input.isDown("Space");
+      const diving = input.isDown("Space") || input.touchDiving;
       this.depth = THREE.MathUtils.clamp(this.depth + (diving ? 1 : -1) * dt * 1.5, 0, 3);
       state.depthM = Math.round(this.depth * 10) / 10;
       if (this.depth > 0.05) {

@@ -67,7 +67,7 @@ export function buildVehicleMesh(def: VehicleDef): BuiltVehicle {
         f.position.set(side * 0.85, 0.4, -1.4);
         group.add(r, f);
       });
-      addLights(group, 0.8, 1, length / 2, false);
+      addLights(group, 0.8, 1, length / 2);
       break;
     }
     case "camion": {
@@ -111,7 +111,7 @@ export function buildVehicleMesh(def: VehicleDef): BuiltVehicle {
         r.position.set(side * 0.9, 0.5, -1.6);
         group.add(r);
       });
-      addLights(group, 0.75, 1, 2.2, false);
+      addLights(group, 0.75, 1, 2.2);
       break;
     }
     case "pelleteuse": {
@@ -132,7 +132,7 @@ export function buildVehicleMesh(def: VehicleDef): BuiltVehicle {
       const bucket = box(0.7, 0.5, 0.6, DARK);
       bucket.position.set(0, 1.1, -2.9);
       group.add(body, turret, boom, bucket);
-      addLights(group, 1, 0.9, 2.3, false);
+      addLights(group, 1, 0.9, 2.3);
       break;
     }
   }
@@ -160,22 +160,53 @@ function addWheels(group: THREE.Group, track: number, length: number, radius: nu
   }
 }
 
-function addLights(group: THREE.Group, halfWidth: number, height: number, halfLength: number, front = true) {
-  const l = lightDot("blinkerL", 0xffc02e);
-  l.position.set(-halfWidth, height, halfLength - 0.1);
-  const r = lightDot("blinkerR", 0xffc02e);
-  r.position.set(halfWidth, height, halfLength - 0.1);
-  group.add(l, r);
+/**
+ * Lights on both ends: the chase camera sits behind the vehicle (facing
+ * +z, the direction of travel) so it mostly sees the REAR (-z) face —
+ * front-only lights are invisible from the default view. Blinkers and
+ * headlights/taillights are duplicated front+rear so the signal reads
+ * from whichever side the player is looking from.
+ */
+function addLights(group: THREE.Group, halfWidth: number, height: number, halfLength: number) {
+  const lf = lightDot("blinkerL_front", 0xffc02e);
+  lf.position.set(-halfWidth, height, halfLength - 0.08);
+  const rf = lightDot("blinkerR_front", 0xffc02e);
+  rf.position.set(halfWidth, height, halfLength - 0.08);
+  const lr = lightDot("blinkerL_rear", 0xffc02e);
+  lr.position.set(-halfWidth, height, -halfLength + 0.08);
+  const rr = lightDot("blinkerR_rear", 0xffc02e);
+  rr.position.set(halfWidth, height, -halfLength + 0.08);
+  group.add(lf, rf, lr, rr);
 
-  if (front) {
-    const head = lightDot("headlight", 0xf4f1ea);
-    head.scale.set(1.4, 1.4, 1.4);
-    head.position.set(0, height, halfLength);
-    group.add(head);
-  }
+  const headL = lightDot("headlightL", 0xf4f1ea);
+  headL.scale.setScalar(1.6);
+  headL.position.set(-halfWidth * 0.55, height, halfLength);
+  const headR = lightDot("headlightR", 0xf4f1ea);
+  headR.scale.setScalar(1.6);
+  headR.position.set(halfWidth * 0.55, height, halfLength);
+  group.add(headL, headR);
+
+  const tailL = lightDot("taillightL", 0xff3b3b);
+  tailL.scale.setScalar(1.3);
+  tailL.position.set(-halfWidth * 0.55, height, -halfLength);
+  const tailR = lightDot("taillightR", 0xff3b3b);
+  tailR.scale.setScalar(1.3);
+  tailR.position.set(halfWidth * 0.55, height, -halfLength);
+  group.add(tailL, tailR);
+
+  // Real light cast forward so "phares" read even when the headlamp dot
+  // itself is on the far side of the vehicle from the camera.
+  const spot = new THREE.SpotLight(0xfff4d6, 0, 26, Math.PI / 6, 0.5, 1.2);
+  spot.name = "headlightSpot";
+  spot.position.set(0, height, halfLength);
+  const spotTarget = new THREE.Object3D();
+  spotTarget.position.set(0, 0, halfLength + 10);
+  group.add(spot, spotTarget, spot.target);
+  spot.target = spotTarget;
 
   const beacon = lightDot("beacon", 0xffc02e);
-  beacon.position.set(0, height + 0.5, 0);
+  beacon.scale.setScalar(1.5);
+  beacon.position.set(0, height + 0.7, 0);
   group.add(beacon);
 }
 

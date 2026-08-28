@@ -46,6 +46,10 @@ export class GameState {
   // Wheel / pedals
   wheelConnected = false;
 
+  // Personnalisation
+  playerName = "";
+  plate = "";
+
   setMode(next: Mode) {
     if (next === this.mode) return;
     const previous = this.mode;

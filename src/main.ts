@@ -10,7 +10,9 @@ const screenRoot = document.getElementById("screen-root")!;
 
 const state = new GameState();
 
-const title = new TitleScreen(screenRoot, async (terrain) => {
+const title = new TitleScreen(screenRoot, async (terrain, name, plate) => {
+  state.playerName = name;
+  state.plate = plate;
   title.hide();
   const loading = new LoadingScreen(screenRoot);
   await loading.run(800);
@@ -18,6 +20,7 @@ const title = new TitleScreen(screenRoot, async (terrain) => {
   const world = new World(canvas, state);
   world.spawnAt(terrain);
   const hud = new GameHud(hudRoot, world);
+  if (name) state.toast(`Salut ${name} !`, "Ta plaque est posée sur le pare-chocs.");
 
   let last = performance.now();
   function frame(now: number) {

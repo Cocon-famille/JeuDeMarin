@@ -1,9 +1,27 @@
 /* ---------- shared HUD chrome ---------- */
+/* Transparent by default so empty space passes drag-to-orbit through to
+   the canvas underneath; only the actual controls opt back into pointer-events. */
 .tt-hud {
   position: absolute;
   inset: 0;
   font-family: var(--tt-font-ui);
   color: var(--tt-marquage);
+}
+
+/* #hud-root > * {pointer-events:auto} in brand.css outweighs a bare
+   .tt-hud class rule (ID beats class) — match its specificity here. */
+#hud-root > .tt-hud {
+  pointer-events: none;
+}
+
+.tt-hud .tt-control-btn,
+.tt-hud .tt-cta,
+.tt-hud .tt-prompt,
+.tt-hud .tt-stick,
+.tt-hud .tt-hgrid button,
+.tt-hud .tt-side-actions .tt-pill {
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .tt-topbar {
@@ -56,7 +74,7 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 168px;
+  bottom: 210px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -100,7 +118,7 @@
   position: absolute;
   left: 14px;
   right: 14px;
-  bottom: 96px;
+  bottom: 150px;
   padding: 12px 16px;
   border-radius: 14px;
   display: flex;
@@ -117,18 +135,18 @@
   border-radius: 5px;
 }
 
-/* control row (4 vehicle buttons) */
+/* control row (4 vehicle buttons) — 2x2 grid, right thumb zone, leaving
+   the left thumb zone free for the drive joystick. */
 .tt-controls-row {
   position: absolute;
-  left: 14px;
   right: 14px;
   bottom: max(30px, env(safe-area-inset-bottom));
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, 56px);
+  grid-template-rows: repeat(2, 52px);
   gap: 8px;
-  justify-content: space-between;
 }
 .tt-control-btn {
-  flex: 1;
   height: 52px;
   min-width: var(--tt-touch);
   border-radius: 14px;
@@ -439,6 +457,18 @@
   color: rgba(244, 241, 234, 0.8);
   text-align: center;
 }
+.tt-title-fields { position: relative; display: flex; flex-direction: column; gap: 8px; max-width: 340px; }
+.tt-field {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(16, 20, 28, 0.7);
+  border: 1px solid rgba(244, 241, 234, 0.18);
+  color: var(--tt-marquage);
+  font-family: var(--tt-font-ui);
+  font-size: 14px;
+}
+.tt-field::placeholder { color: rgba(244, 241, 234, 0.4); }
+.tt-field:focus { outline: none; border-color: var(--tt-gyrophare); }
 .tt-title-tags { position: relative; display: flex; gap: 6px; flex-wrap: wrap; font-family: var(--tt-font-mono); font-size: 9px; letter-spacing: 0.08em; }
 .tt-tag { padding: 5px 9px; border-radius: 999px; }
 .tt-tag-ferme { background: rgba(143, 191, 74, 0.2); color: #b7e07a; }

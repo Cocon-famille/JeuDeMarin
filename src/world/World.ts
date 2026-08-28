@@ -32,6 +32,13 @@ export class World {
   onWheelCalibrated?: () => void;
   onWheelStep?: (step: 0 | 1 | 2, progress: number) => void;
 
+  // Caméra suiveuse orbitable : glisser sur le décor tourne autour du
+  // véhicule/personnage pour voir l'avant comme l'arrière.
+  private orbitYaw = 0;
+  private orbitPitch = 0;
+  private orbitDragging = false;
+  private lastPointer = { x: 0, y: 0 };
+
   constructor(canvas: HTMLCanvasElement, state: GameState) {
     this.state = state;
     this.gearbox = new GearboxController(this.state);
@@ -39,8 +46,9 @@ export class World {
     buildTerrain(this.rig.scene);
     this.water = buildWater(this.rig.scene);
     buildShop(this.rig.scene);
+    this.setupOrbitDrag(canvas);
 
-    this.vehicle = new Vehicle(VEHICLE_CATALOG[0], this.rig.scene);
+    this.vehicle = new Vehicle(VEHICLE_CATALOG[0], this.rig.scene, state);
     this.vehicle.respawnAt(PARKING_SPOT.x, PARKING_SPOT.z, 0);
 
     this.walker = new Walker(this.rig.scene);
@@ -104,18 +112,45 @@ export class World {
       if (this.nearShop) {
         this.state.toast(copy.terrain.somethingShines);
       }
+      if (this.state.mode === "swim" && this.input.justPressed("KeyF")) {
+        const dir = new THREE.Vector3(Math.sin(this.walker.heading), 0, Math.cos(this.walker.heading));
+        this.walker.object.position.addScaledVector(dir, 3);
+      }
     }
 
     this.updateCamera();
     this.rig.render();
   }
 
+  private setupOrbitDrag(canvas: HTMLCanvasElement) {
+    canvas.style.touchAction = "none";
+    canvas.addEventListener("pointerdown", (e) => {
+      this.orbitDragging = true;
+      this.lastPointer = { x: e.clientX, y: e.clientY };
+    });
+    window.addEventListener("pointermove", (e) => {
+      if (!this.orbitDragging) return;
+      const dx = e.clientX - this.lastPointer.x;
+      const dy = e.clientY - this.lastPointer.y;
+      this.lastPointer = { x: e.clientX, y: e.clientY };
+      this.orbitYaw -= dx * 0.012;
+      this.orbitPitch = THREE.MathUtils.clamp(this.orbitPitch + dy * 0.008, -0.45, 0.85);
+    });
+    window.addEventListener("pointerup", () => (this.orbitDragging = false));
+    window.addEventListener("pointercancel", () => (this.orbitDragging = false));
+  }
+
   private updateCamera() {
     const target = this.state.mode === "drive" ? this.vehicle.object : this.walker.object;
     const heading = this.state.mode === "drive" ? this.vehicle.heading : this.walker.heading;
-    const back = new THREE.Vector3(Math.sin(heading), 0, Math.cos(heading)).multiplyScalar(-8);
-    const desired = target.position.clone().add(back).add(new THREE.Vector3(0, 4.5, 0));
-    this.rig.camera.position.lerp(desired, 0.08);
+    const yaw = heading + this.orbitYaw;
+    const pitch = this.orbitPitch;
+    const distance = 8;
+    const horiz = distance * Math.cos(pitch);
+    const vert = 4.5 + distance * Math.sin(pitch);
+    const back = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).multiplyScalar(-horiz);
+    const desired = target.position.clone().add(back).add(new THREE.Vector3(0, vert, 0));
+    this.rig.camera.position.lerp(desired, 0.15);
     const lookAt = target.position.clone().add(new THREE.Vector3(0, 1.2, 0));
     this.rig.camera.lookAt(lookAt);
   }
