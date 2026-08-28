@@ -1,0 +1,25 @@
+{
+  "name": "jeudemarin",
+  "version": "0.1.0",
+  "description": "Tractopolis — simulation 3D dans le navigateur : ferme, chantier, ville. Conduis, descends, plonge.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cocon-famille/jeudemarin.git"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.169.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}
