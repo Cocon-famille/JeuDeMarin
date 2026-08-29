@@ -1,5 +1,6 @@
 import { EventBus } from "./EventBus";
 import { copy } from "../content/copy";
+import { loadProfile, saveProfile } from "../lib/tractopolisProfile";
 
 export type Mode = "drive" | "pedestrian" | "swim";
 export type Terrain = "ferme" | "chantier" | "ville";
@@ -69,10 +70,36 @@ export class GameState {
   zonesVisited: Set<Terrain> = new Set();
   claimedTaskIds: Set<string>;
 
+  // Le profil cloud (Supabase, par nom) ne doit pas être écrasé par les
+  // valeurs locales par défaut avant d'avoir tenté de le charger.
+  private profileHydrated = false;
+
   constructor() {
     this.money = readStoredNumber("tractopolis.money", 91294);
     this.ownedVehicleIds = new Set(readStoredJson<string[]>("tractopolis.owned", []));
     this.claimedTaskIds = new Set(readStoredJson<string[]>("tractopolis.tasksClaimed", []));
+  }
+
+  /** À appeler une fois le nom du joueur connu (écran titre), avant de démarrer la partie. */
+  async hydrateProfile(): Promise<void> {
+    try {
+      if (this.playerName.trim()) {
+        const remote = await loadProfile(this.playerName);
+        if (remote) {
+          this.plate = remote.plate || this.plate;
+          this.money = remote.money;
+          this.ownedVehicleIds = new Set(remote.ownedVehicleIds);
+          this.claimedTaskIds = new Set(remote.claimedTaskIds);
+          writeStoredNumber("tractopolis.money", this.money);
+          writeStoredJson("tractopolis.owned", remote.ownedVehicleIds);
+          writeStoredJson("tractopolis.tasksClaimed", remote.claimedTaskIds);
+        }
+      }
+    } catch {
+      // Pas de réseau, ou profil pas encore créé — on continue avec le local.
+    } finally {
+      this.profileHydrated = true;
+    }
   }
 
   visitZone(t: Terrain) {
@@ -92,6 +119,20 @@ export class GameState {
   private persistWallet() {
     writeStoredNumber("tractopolis.money", this.money);
     writeStoredJson("tractopolis.owned", Array.from(this.ownedVehicleIds));
+    this.syncToCloud();
+  }
+
+  /** Sauvegarde best-effort vers le profil Supabase — jamais bloquant, jamais d'erreur remontée. */
+  private syncToCloud() {
+    if (!this.profileHydrated || !this.playerName.trim()) return;
+    saveProfile(this.playerName, {
+      plate: this.plate,
+      money: this.money,
+      ownedVehicleIds: Array.from(this.ownedVehicleIds),
+      claimedTaskIds: Array.from(this.claimedTaskIds),
+    }).catch(() => {
+      // Hors-ligne ou Supabase indisponible — le localStorage reste la source de vérité locale.
+    });
   }
 
   owns(vehicleId: string, price: number): boolean {

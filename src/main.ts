@@ -15,7 +15,7 @@ const title = new TitleScreen(screenRoot, async (terrain, name, plate) => {
   state.plate = plate;
   title.hide();
   const loading = new LoadingScreen(screenRoot);
-  await loading.run(800);
+  await Promise.all([loading.run(800), state.hydrateProfile()]);
 
   const world = new World(canvas, state);
   world.spawnAt(terrain);
