@@ -13,10 +13,10 @@ export class SceneRig {
 
     this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-    this.scene.background = new THREE.Color(0x10141c);
-    this.scene.fog = new THREE.Fog(0x10141c, 80, 260);
+    this.scene.background = new THREE.Color(0x8ed2f7);
+    this.scene.fog = new THREE.Fog(0x8ed2f7, 100, 280);
 
-    const hemi = new THREE.HemisphereLight(0xdfe8ff, 0x1b2230, 0.9);
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x6a8f4a, 1.0);
     this.scene.add(hemi);
 
     const sun = new THREE.DirectionalLight(0xfff3d6, 1.1);
