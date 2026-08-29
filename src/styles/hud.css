@@ -27,7 +27,7 @@
 
 .tt-topbar {
   position: absolute;
-  top: 150px;
+  top: 184px;
   left: 14px;
   right: 14px;
   display: flex;
@@ -524,6 +524,35 @@
   color: rgba(244, 241, 234, 0.5);
 }
 
+/* tasks panel — reuses .tt-shop-* chrome, green accent instead of amber */
+.tt-tasks-panel { border-top-color: #7ce38b; }
+.tt-task-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--tt-panel-1);
+  border: 1px solid transparent;
+}
+.tt-task-item.tt-task-done { border-color: rgba(124, 227, 139, 0.4); }
+.tt-task-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.tt-task-label { font-weight: 800; font-size: 15px; }
+.tt-task-hint { font-size: 12px; color: rgba(244, 241, 234, 0.55); }
+.tt-task-progress { font-family: var(--tt-font-mono); font-size: 11px; color: rgba(244, 241, 234, 0.5); }
+.tt-task-reward { font-family: var(--tt-font-mono); font-size: 12px; color: #ffc02e; white-space: nowrap; }
+.tt-task-claim {
+  margin-top: 2px;
+  align-self: flex-start;
+  padding: 7px 14px;
+  border-radius: 10px;
+  background: #7ce38b;
+  color: #0c1017;
+  font-weight: 800;
+  font-size: 13px;
+}
+.tt-task-claimed { font-size: 12px; color: #7ce38b; font-weight: 700; }
+
 /* bank panel — reuses .tt-shop-* chrome, blue accent instead of amber */
 .tt-bank-panel { border-top-color: #37b6f0; }
 .tt-bank-row { display: flex; gap: 8px; align-items: center; }
@@ -544,16 +573,17 @@
 .tt-bank-account button { color: #8adafa; text-decoration: underline; font-size: 12px; }
 
 /* ---------- top info bar (sim-style dashboard) ---------- */
+/* Deliberate two-row stack (not flex-wrap) — chips rarely fit beside the
+   icon buttons on a ~390-420px phone width, and a wrap landing wherever
+   it happens to fit put the icon row right under the minimap, unclickable. */
 .tt-topinfo {
   position: absolute;
   top: max(10px, env(safe-area-inset-top));
   left: 10px;
   right: 10px;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 6px;
 }
 .tt-info-chips {
   display: flex;
@@ -578,6 +608,7 @@
 .tt-icon-row {
   display: flex;
   gap: 6px;
+  justify-content: flex-end;
 }
 .tt-icon-btn {
   width: 38px;
@@ -596,7 +627,7 @@
 /* ---------- minimap ---------- */
 .tt-minimap-wrap {
   position: absolute;
-  top: 58px;
+  top: 92px;
   left: 10px;
   border-radius: 12px;
   overflow: hidden;

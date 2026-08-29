@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { GameState } from "../core/GameState";
 import { InputManager } from "../core/InputManager";
-import { isInWater, clampToWorld } from "./Terrain";
+import { isInWater, clampToWorld, zoneAt } from "./Terrain";
 import { copy } from "../content/copy";
 
 const WALK_SPEED = 4.5;
@@ -55,6 +55,8 @@ export class Walker {
     const clamped = clampToWorld(this.object.position.x, this.object.position.z);
     this.object.position.x = clamped.x;
     this.object.position.z = clamped.z;
+    state.terrain = zoneAt(this.object.position.x);
+    state.visitZone(state.terrain);
 
     if (state.mode === "swim") {
       const diving = input.isDown("Space") || input.touchDiving;

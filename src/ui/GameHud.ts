@@ -9,6 +9,7 @@ import { TopInfoBar } from "./TopInfoBar";
 import { MiniMap } from "./MiniMap";
 import { WorldIcon } from "./WorldIcon";
 import { BankPanel } from "./BankPanel";
+import { TasksPanel } from "./TasksPanel";
 import { SHOP_POSITION } from "../world/Shop";
 import { copy } from "../content/copy";
 
@@ -25,6 +26,7 @@ export class GameHud {
   private minimap: MiniMap;
   private worldIcon: WorldIcon;
   private bank: BankPanel;
+  private tasks: TasksPanel;
   private minimapExpanded = false;
 
   constructor(hudRoot: HTMLElement, private world: World) {
@@ -33,16 +35,17 @@ export class GameHud {
     this.swimHud = new WalkHud(hudRoot, { mode: "swim", label: "Nage", badgeClass: "tt-badge-swim" }, world.state, world.input);
     this.toast = new ToastStack(hudRoot, world.state);
     this.wheelBanner = new WheelBannerUI(hudRoot, world.wheel);
-    this.shop = new ShopUI(hudRoot, (def) => {
+    this.shop = new ShopUI(hudRoot, world.state, (def) => {
       world.swapVehicle(def);
       this.shop.close();
     });
     this.bank = new BankPanel(hudRoot, world.state);
+    this.tasks = new TasksPanel(hudRoot, world.state);
     this.topInfo = new TopInfoBar(hudRoot, world.state, {
       onHelp: () => world.state.toast("Commandes", "Joystick pour bouger · F sortir · E interagir/entrer"),
       onMap: () => this.toggleMinimap(),
       onShop: () => this.openShop(),
-      onMenu: () => world.state.toast("Menu", "Bientôt disponible."),
+      onMenu: () => (this.tasks.isOpen ? this.tasks.close() : this.tasks.open()),
       onMoney: () => (this.bank.isOpen ? this.bank.close() : this.bank.open()),
     });
     this.minimap = new MiniMap(hudRoot);
@@ -73,7 +76,7 @@ export class GameHud {
 
   update() {
     const mode = this.world.state.mode;
-    const modalOpen = this.shop.isOpen || this.bank.isOpen;
+    const modalOpen = this.shop.isOpen || this.bank.isOpen || this.tasks.isOpen;
     this.driveHud.setVisible(mode === "drive" && !modalOpen);
     this.pedestrianHud.setVisible(mode === "pedestrian" && !modalOpen);
     this.swimHud.setVisible(mode === "swim" && !modalOpen);
@@ -108,9 +111,10 @@ export class GameHud {
     }
     if (this.shop.isOpen && this.world.input.justPressed("Escape")) this.shop.close();
     if (this.bank.isOpen && this.world.input.justPressed("Escape")) this.bank.close();
+    if (this.tasks.isOpen && this.world.input.justPressed("Escape")) this.tasks.close();
   }
 
   get shopOpen() {
-    return this.shop.isOpen || this.bank.isOpen;
+    return this.shop.isOpen || this.bank.isOpen || this.tasks.isOpen;
   }
 }

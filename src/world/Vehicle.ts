@@ -90,9 +90,12 @@ export class Vehicle {
     else this.object.position.y = 0;
 
     state.speedKmh = Math.round(Math.abs(this.speed) * 3.6);
+    state.topSpeedKmh = Math.max(state.topSpeedKmh, state.speedKmh);
     state.terrain = zoneAt(this.object.position.x);
+    state.visitZone(state.terrain);
 
     const distanceKm = (Math.abs(this.speed) * dt) / 1000;
+    state.distanceDrivenKm += distanceKm;
     state.fuel = Math.max(0, state.fuel - distanceKm * FUEL_DRAIN_PER_KM);
     state.checkFuelWarning();
 

@@ -55,8 +55,67 @@ export class GameState {
   fuel = 1; // 0..1
   private fuelWarned = false;
   clockMinutes = 8 * 60; // 08:00 au démarrage
-  money = 91294;
+  money: number;
   season = "Sep";
+
+  // Véhicules achetés à la boutique — persistés pour ne pas perdre un
+  // achat au rechargement de la page. Un prix à 0 est toujours "possédé".
+  ownedVehicleIds: Set<string>;
+
+  // Statistiques suivies pour les tâches (petits boulots à réclamer).
+  distanceDrivenKm = 0;
+  topSpeedKmh = 0;
+  hasSwum = false;
+  zonesVisited: Set<Terrain> = new Set();
+  claimedTaskIds: Set<string>;
+
+  constructor() {
+    this.money = readStoredNumber("tractopolis.money", 91294);
+    this.ownedVehicleIds = new Set(readStoredJson<string[]>("tractopolis.owned", []));
+    this.claimedTaskIds = new Set(readStoredJson<string[]>("tractopolis.tasksClaimed", []));
+  }
+
+  visitZone(t: Terrain) {
+    this.zonesVisited.add(t);
+  }
+
+  /** Réclame la récompense d'une tâche déjà accomplie. Une seule fois par tâche. */
+  claimTask(id: string, label: string, reward: number): boolean {
+    if (this.claimedTaskIds.has(id)) return false;
+    this.claimedTaskIds.add(id);
+    writeStoredJson("tractopolis.tasksClaimed", Array.from(this.claimedTaskIds));
+    this.credit(reward);
+    this.toast("Tâche accomplie", `${label} — +${reward.toLocaleString("fr-FR")} $`);
+    return true;
+  }
+
+  private persistWallet() {
+    writeStoredNumber("tractopolis.money", this.money);
+    writeStoredJson("tractopolis.owned", Array.from(this.ownedVehicleIds));
+  }
+
+  owns(vehicleId: string, price: number): boolean {
+    return price === 0 || this.ownedVehicleIds.has(vehicleId);
+  }
+
+  /** Retourne false (et prévient) si l'achat n'est pas possible faute d'argent. */
+  purchase(vehicleId: string, label: string, price: number): boolean {
+    if (this.owns(vehicleId, price)) return true;
+    if (this.money < price) {
+      this.toast("Pas assez d'argent", `Il manque ${(price - this.money).toLocaleString("fr-FR")} $.`);
+      return false;
+    }
+    this.money -= price;
+    this.ownedVehicleIds.add(vehicleId);
+    this.persistWallet();
+    this.toast("Achat confirmé", `${label} — ${price.toLocaleString("fr-FR")} $`);
+    return true;
+  }
+
+  credit(amount: number) {
+    this.money += amount;
+    this.persistWallet();
+  }
 
   refuel() {
     this.fuel = 1;
@@ -92,6 +151,7 @@ export class GameState {
     } else if (next === "drive" && previous === "pedestrian") {
       this.toast(copy.modeChange.backInVehicle);
     } else if (next === "swim") {
+      this.hasSwum = true;
       this.toast(copy.swim.swimOn, copy.swim.takeABreath);
     } else if (previous === "swim" && next === "pedestrian") {
       this.toast(copy.swim.exitWater);
@@ -135,5 +195,37 @@ export class GameState {
     if (this.wheelConnected === connected) return;
     this.wheelConnected = connected;
     this.events.emit("wheelConnected", { connected });
+  }
+}
+
+function readStoredNumber(key: string, fallback: number): number {
+  try {
+    const raw = localStorage.getItem(key);
+    const n = raw === null ? NaN : Number(raw);
+    return Number.isFinite(n) ? n : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function writeStoredNumber(key: string, value: number) {
+  try {
+    localStorage.setItem(key, String(value));
+  } catch {
+    // stockage indisponible — tant pis
+  }
+}
+function readStoredJson<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function writeStoredJson(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // stockage indisponible — tant pis
   }
 }

@@ -228,7 +228,7 @@ export class BankPanel {
       this.stopPolling();
       writeStored(PENDING_KEY, null);
       if (status === "accepted") {
-        this.state.money += pending.euros * GAME_MONEY_PER_EURO;
+        this.state.credit(pending.euros * GAME_MONEY_PER_EURO);
         this.state.toast("Recharge acceptée", `+${(pending.euros * GAME_MONEY_PER_EURO).toLocaleString("fr-FR")} $ en jeu.`);
       } else {
         this.state.toast("Demande refusée", "Rien n'a été débité.");
