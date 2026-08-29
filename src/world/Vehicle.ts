@@ -5,7 +5,7 @@ import { WheelManager } from "../core/WheelManager";
 import { VehicleDef } from "./VehicleCatalog";
 import { buildVehicleMesh } from "./VehicleMeshFactory";
 import { addPlates } from "./Plate";
-import { isInWater, zoneAt } from "./Terrain";
+import { isInWater, zoneAt, clampToWorld } from "./Terrain";
 
 const MAX_SPEED = 22; // m/s casual arcade top speed, not a real vehicle's
 const ACCEL = 10;
@@ -80,6 +80,10 @@ export class Vehicle {
 
     const dir = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading));
     this.object.position.addScaledVector(dir, this.speed * dt);
+    const clamped = clampToWorld(this.object.position.x, this.object.position.z);
+    if (clamped.x !== this.object.position.x || clamped.z !== this.object.position.z) this.speed *= 0.5;
+    this.object.position.x = clamped.x;
+    this.object.position.z = clamped.z;
     if (inWater) this.object.position.y = -0.05 + Math.sin(performance.now() / 300) * 0.03;
     else this.object.position.y = 0;
 

@@ -8,6 +8,7 @@ import { SceneRig } from "./Scene";
 import { buildTerrain } from "./Terrain";
 import { buildWater } from "./Water";
 import { buildShop, isNearShop, PARKING_SPOT } from "./Shop";
+import { clampToWorld } from "./Terrain";
 import { Vehicle } from "./Vehicle";
 import { Walker } from "./Walker";
 import { VEHICLE_CATALOG, VehicleDef } from "./VehicleCatalog";
@@ -115,6 +116,9 @@ export class World {
       if (this.state.mode === "swim" && this.input.justPressed("KeyF")) {
         const dir = new THREE.Vector3(Math.sin(this.walker.heading), 0, Math.cos(this.walker.heading));
         this.walker.object.position.addScaledVector(dir, 3);
+        const clamped = clampToWorld(this.walker.object.position.x, this.walker.object.position.z);
+        this.walker.object.position.x = clamped.x;
+        this.walker.object.position.z = clamped.z;
       }
     }
 

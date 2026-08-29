@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { GameState } from "../core/GameState";
 import { InputManager } from "../core/InputManager";
-import { isInWater } from "./Terrain";
+import { isInWater, clampToWorld } from "./Terrain";
 import { copy } from "../content/copy";
 
 const WALK_SPEED = 4.5;
@@ -52,6 +52,9 @@ export class Walker {
     this.object.rotation.y = this.heading;
     const dir = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading));
     this.object.position.addScaledVector(dir, input.throttle * speed * dt);
+    const clamped = clampToWorld(this.object.position.x, this.object.position.z);
+    this.object.position.x = clamped.x;
+    this.object.position.z = clamped.z;
 
     if (state.mode === "swim") {
       const diving = input.isDown("Space") || input.touchDiving;

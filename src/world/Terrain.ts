@@ -9,7 +9,25 @@ export const ZONE_BOUNDS: Record<TerrainZone, { minX: number; maxX: number; colo
   ville: { minX: 60, maxX: 180, color: 0x5aa9ff },
 };
 
-export const WATER_BOUNDS = { minX: 90, maxX: 175, minZ: 40, maxZ: 130, surfaceY: -0.15 };
+export const WATER_BOUNDS = { minX: 90, maxX: 175, minZ: 40, maxZ: 100, surfaceY: -0.15 };
+
+// Le sol fait 220 de profondeur (z: -110..110) — au-delà, c'est le vide.
+// Une bordure invisible garde le joueur dans le décor plutôt que de le
+// laisser sortir sans repère pour revenir.
+const WORLD_MARGIN = 3;
+export const WORLD_BOUNDS = {
+  minX: ZONE_BOUNDS.ferme.minX + WORLD_MARGIN,
+  maxX: ZONE_BOUNDS.ville.maxX - WORLD_MARGIN,
+  minZ: -110 + WORLD_MARGIN,
+  maxZ: 110 - WORLD_MARGIN,
+};
+
+export function clampToWorld(x: number, z: number): { x: number; z: number } {
+  return {
+    x: THREE.MathUtils.clamp(x, WORLD_BOUNDS.minX, WORLD_BOUNDS.maxX),
+    z: THREE.MathUtils.clamp(z, WORLD_BOUNDS.minZ, WORLD_BOUNDS.maxZ),
+  };
+}
 
 export function zoneAt(x: number): TerrainZone {
   if (x < ZONE_BOUNDS.ferme.maxX) return "ferme";
