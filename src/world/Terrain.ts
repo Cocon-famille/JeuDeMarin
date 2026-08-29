@@ -41,18 +41,38 @@ export function isInWater(x: number, z: number): boolean {
   );
 }
 
+const GROUND_MIN_Z = -110;
+const GROUND_MAX_Z = 110;
+
+function addGroundPlane(group: THREE.Group, minX: number, maxX: number, minZ: number, maxZ: number, color: number) {
+  const width = maxX - minX;
+  const depth = maxZ - minZ;
+  if (width <= 0 || depth <= 0) return;
+  const geo = new THREE.PlaneGeometry(width, depth);
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.95 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(minX + width / 2, 0, minZ + depth / 2);
+  mesh.receiveShadow = true;
+  group.add(mesh);
+}
+
 export function buildTerrain(scene: THREE.Scene) {
   const group = new THREE.Group();
 
-  for (const zone of Object.values(ZONE_BOUNDS)) {
-    const width = zone.maxX - zone.minX;
-    const geo = new THREE.PlaneGeometry(width, 220);
-    const mat = new THREE.MeshStandardMaterial({ color: zone.color, roughness: 0.95 });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(zone.minX + width / 2, 0, 0);
-    mesh.receiveShadow = true;
-    group.add(mesh);
+  for (const [id, zone] of Object.entries(ZONE_BOUNDS) as [TerrainZone, typeof ZONE_BOUNDS.ferme][]) {
+    if (id !== "ville") {
+      addGroundPlane(group, zone.minX, zone.maxX, GROUND_MIN_Z, GROUND_MAX_Z, zone.color);
+      continue;
+    }
+    // La ville a un trou exact aux dimensions du lac : un plan plein
+    // dessinerait par-dessus l'eau et la rendrait invisible (bug initial).
+    // On carrelle le pourtour en 4 bandes autour du rectangle du lac.
+    const w = WATER_BOUNDS;
+    addGroundPlane(group, zone.minX, w.minX, GROUND_MIN_Z, GROUND_MAX_Z, zone.color); // gauche
+    addGroundPlane(group, w.maxX, zone.maxX, GROUND_MIN_Z, GROUND_MAX_Z, zone.color); // droite
+    addGroundPlane(group, w.minX, w.maxX, GROUND_MIN_Z, w.minZ, zone.color); // devant le lac
+    addGroundPlane(group, w.minX, w.maxX, w.maxZ, GROUND_MAX_Z, zone.color); // derrière le lac
   }
 
   // Quelques accessoires low-poly par terrain, pour lire l'espace sans assets d'art.
@@ -60,14 +80,18 @@ export function buildTerrain(scene: THREE.Scene) {
   addProps(group, ZONE_BOUNDS.chantier, () => makeCrate());
   addProps(group, ZONE_BOUNDS.ville, () => makeBuilding());
 
-  // Fosse du lac (légèrement encaissée) sous la zone d'eau.
+  // Fosse du lac (légèrement encaissée) sous la zone d'eau. Le dessus de
+  // la fosse doit rester SOUS la surface de l'eau (WATER_BOUNDS.surfaceY),
+  // sinon la fosse (opaque) passe devant l'eau (transparente) et la cache.
+  const pitHeight = 3;
+  const pitTopY = WATER_BOUNDS.surfaceY - 0.25;
   const pit = new THREE.Mesh(
-    new THREE.BoxGeometry(WATER_BOUNDS.maxX - WATER_BOUNDS.minX, 3, WATER_BOUNDS.maxZ - WATER_BOUNDS.minZ),
+    new THREE.BoxGeometry(WATER_BOUNDS.maxX - WATER_BOUNDS.minX, pitHeight, WATER_BOUNDS.maxZ - WATER_BOUNDS.minZ),
     new THREE.MeshStandardMaterial({ color: 0x1a2a1e, roughness: 1 }),
   );
   pit.position.set(
     (WATER_BOUNDS.minX + WATER_BOUNDS.maxX) / 2,
-    -1.6,
+    pitTopY - pitHeight / 2,
     (WATER_BOUNDS.minZ + WATER_BOUNDS.maxZ) / 2,
   );
   group.add(pit);
