@@ -524,6 +524,25 @@
   color: rgba(244, 241, 234, 0.5);
 }
 
+/* bank panel — reuses .tt-shop-* chrome, blue accent instead of amber */
+.tt-bank-panel { border-top-color: #37b6f0; }
+.tt-bank-row { display: flex; gap: 8px; align-items: center; }
+.tt-bank-row .tt-field { flex: 1; }
+.tt-bank-preview { font-size: 13px; color: rgba(244, 241, 234, 0.65); }
+.tt-bank-preview strong { color: #8adafa; }
+.tt-bank-status {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(55, 182, 240, 0.1);
+  border: 1px solid rgba(55, 182, 240, 0.4);
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tt-bank-account { font-size: 13px; color: rgba(244, 241, 234, 0.6); }
+.tt-bank-account button { color: #8adafa; text-decoration: underline; font-size: 12px; }
+
 /* ---------- top info bar (sim-style dashboard) ---------- */
 .tt-topinfo {
   position: absolute;

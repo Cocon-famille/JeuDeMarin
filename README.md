@@ -20,6 +20,8 @@ npm run typecheck
 - **Support volant & pédales** silencieux via la Gamepad API : détection au premier mouvement, bandeau + calibration en 3 étapes, HUD tactile qui s'efface quand le volant est branché, retour au clavier sans blocage à la débranche.
 - **Vitrine d'engins** (`E` près du kiosque en ville) : catalogue de véhicules — citadine, pick-up, tracteur, camions (benne/plateau), remorques (basse/à bétail), rouleau compresseur, pelleteuse — échangeable instantanément, sans économie ni prix (hors périmètre des guidelines).
 - **Ton éditorial** : tous les messages in-game viennent de `src/content/copy.ts`, repris des guidelines (règle des 5 mots, tutoiement).
+- **Tableau de bord réaliste** (`src/ui/TopInfoBar.ts`, `MiniMap.ts`) : date/heure/argent/essence, icônes aide/carte/boutique/menu, minimap en direct, icône flottante 3D sur les points d'interaction. L'essence se consomme vraiment en roulant et se recharge à la boutique.
+- **Recharge via Crédit Domestique** (`src/lib/creditDomestique.ts`, `src/ui/BankPanel.ts`) : cliquer sur le montant d'argent ouvre un lien vers la banque familiale fictive (projet Supabase séparé, `credit-domestique.vercel.app`). On choisit un compte du foyer, on demande un montant — Tractopolis pose une *Charge* (comme n'importe quelle entreprise de leur système) que le titulaire doit valider dans Crédit Domestique ; l'argent n'est crédité dans le jeu qu'une fois la demande acceptée. Aucune écriture directe dans leurs soldes/écritures — on respecte leur moteur bancaire tel quel. Le taux (`GAME_MONEY_PER_EURO`) est à 100 $/€, ajustable dans `creditDomestique.ts`.
 
 ## Ce qui est volontairement absent (hors périmètre des guidelines)
 

@@ -7,6 +7,7 @@ export interface TopInfoBarActions {
   onMap: () => void;
   onShop: () => void;
   onMenu: () => void;
+  onMoney: () => void;
 }
 
 /** Barre du haut façon tableau de bord de sim réaliste : date/heure/argent/essence + accès rapides. */
@@ -25,7 +26,10 @@ export class TopInfoBar {
     this.clockText = el("span", { text: state.clockLabel });
     chips.append(this.wrapChip(icons.clock, this.clockText));
     this.moneyText = el("span", { text: state.money.toLocaleString("fr-FR") });
-    chips.append(this.wrapChip(icons.coin, this.moneyText));
+    const moneyChip = this.wrapChip(icons.coin, this.moneyText);
+    moneyChip.style.cursor = "pointer";
+    moneyChip.addEventListener("click", actions.onMoney);
+    chips.append(moneyChip);
     this.fuelText = el("span", { text: "100%" });
     this.fuelChip = this.wrapChip(icons.fuel, this.fuelText);
     chips.append(this.fuelChip);
