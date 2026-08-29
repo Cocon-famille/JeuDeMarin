@@ -84,6 +84,7 @@ export class GameHud {
     if (mode === "drive") {
       this.driveHud.updateVehicleLabel(this.world.vehicle.def);
       this.driveHud.update();
+      this.driveHud.setFarmPrompt(this.world.farm.prompt(this.world.vehicle.def.kind));
     } else if (mode === "pedestrian") {
       this.pedestrianHud.update();
       if (this.world.nearVehicle) this.pedestrianHud.setPrompt(copy.ui.reEnter, "E");

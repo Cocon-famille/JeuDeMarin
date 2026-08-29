@@ -17,6 +17,9 @@ export class DriveHud {
   private arrowR: HTMLElement;
   private speedValue: HTMLElement;
   private cta: HTMLElement;
+  private ctaLabelEl: HTMLElement;
+  private ctaKeyEl: HTMLElement;
+  private farmPromptActive = false;
   private btnLeft: HTMLElement;
   private btnWarn: HTMLElement;
   private btnHead: HTMLElement;
@@ -42,14 +45,14 @@ export class DriveHud {
     speedRow.append(this.arrowL, pill, this.arrowR);
 
     this.cta = el("div", { className: "tt-cta" });
-    const ctaLabel = el("span", { text: copy.modeChange.exitVehicle });
-    const ctaKey = el("span", { className: "tt-cta-key", text: "F" });
-    this.cta.append(ctaLabel, ctaKey);
-    this.cta.style.background = "var(--tt-pieton)";
+    this.ctaLabelEl = el("span", { text: copy.modeChange.exitVehicle });
+    this.ctaKeyEl = el("span", { className: "tt-cta-key", text: "F" });
+    this.cta.append(this.ctaLabelEl, this.ctaKeyEl);
     this.cta.style.color = "#0c1017";
-    ctaKey.style.background = "rgba(12,16,23,0.22)";
-    ctaKey.style.color = "#0c1017";
-    this.cta.addEventListener("click", () => this.input.pressVirtual("KeyF"));
+    this.ctaKeyEl.style.background = "rgba(12,16,23,0.22)";
+    this.ctaKeyEl.style.color = "#0c1017";
+    this.cta.style.background = "var(--tt-pieton)";
+    this.cta.addEventListener("click", () => this.input.pressVirtual(this.farmPromptActive ? "KeyE" : "KeyF"));
 
     this.controlsRow = el("div", { className: "tt-controls-row" });
     const controls = this.controlsRow;
@@ -111,6 +114,23 @@ export class DriveHud {
     // seuls les témoins de clignotants/phares restent visibles.
     this.controlsRow.classList.toggle("tt-hidden", this.state.wheelConnected);
     this.joystick.setVisible(!this.state.wheelConnected);
+  }
+
+  /** Le champ actif prend la place du bandeau "Sors de la voiture" — un seul CTA à la fois. */
+  setFarmPrompt(prompt: { text: string; key?: string } | null) {
+    if (prompt) {
+      this.farmPromptActive = true;
+      this.ctaLabelEl.textContent = prompt.text;
+      this.ctaKeyEl.textContent = prompt.key ?? "";
+      this.ctaKeyEl.classList.toggle("tt-hidden", !prompt.key);
+      this.cta.style.background = "var(--tt-gyrophare)";
+    } else {
+      this.farmPromptActive = false;
+      this.ctaLabelEl.textContent = copy.modeChange.exitVehicle;
+      this.ctaKeyEl.textContent = "F";
+      this.ctaKeyEl.classList.remove("tt-hidden");
+      this.cta.style.background = "var(--tt-pieton)";
+    }
   }
 
   setVisible(visible: boolean) {

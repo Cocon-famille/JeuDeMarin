@@ -1,4 +1,4 @@
-export type VehicleKind = "voiture" | "tracteur" | "camion" | "remorque" | "rouleau" | "pelleteuse";
+export type VehicleKind = "voiture" | "tracteur" | "camion" | "remorque" | "rouleau" | "pelleteuse" | "moissonneuse";
 
 export interface VehicleDef {
   id: string;
@@ -21,4 +21,5 @@ export const VEHICLE_CATALOG: VehicleDef[] = [
   { id: "remorque-betaille", kind: "remorque", label: "Remorque à bétail", color: 0xb7a06a, home: "ferme", price: 3000 },
   { id: "rouleau-compresseur", kind: "rouleau", label: "Rouleau compresseur", color: 0xffc02e, home: "chantier", price: 10000 },
   { id: "pelleteuse", kind: "pelleteuse", label: "Pelleteuse", color: 0xe2761b, home: "chantier", price: 15000 },
+  { id: "moissonneuse-batteuse", kind: "moissonneuse", label: "Moissonneuse-batteuse", color: 0xe2761b, home: "ferme", price: 20000 },
 ];

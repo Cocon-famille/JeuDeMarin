@@ -11,6 +11,7 @@ import { buildShop, isNearShop, PARKING_SPOT } from "./Shop";
 import { clampToWorld } from "./Terrain";
 import { Vehicle } from "./Vehicle";
 import { Walker } from "./Walker";
+import { Farm } from "./Farm";
 import { VEHICLE_CATALOG, VehicleDef } from "./VehicleCatalog";
 import { copy } from "../content/copy";
 
@@ -23,6 +24,7 @@ export class World {
   readonly state: GameState;
   readonly input = new InputManager();
   readonly wheel: WheelManager;
+  readonly farm: Farm;
   private drive = new DriveController();
   private gearbox: GearboxController;
   private water: ReturnType<typeof buildWater>;
@@ -47,6 +49,7 @@ export class World {
     buildTerrain(this.rig.scene);
     this.water = buildWater(this.rig.scene);
     buildShop(this.rig.scene);
+    this.farm = new Farm(this.rig.scene);
     this.setupOrbitDrag(canvas);
 
     this.vehicle = new Vehicle(VEHICLE_CATALOG[0], this.rig.scene, state);
@@ -89,6 +92,7 @@ export class World {
       this.vehicle.update(dt, this.input, this.wheel, this.state);
       this.drive.update(this.input, this.state);
       this.gearbox.update(this.input);
+      this.farm.update(dt, this.vehicle.object.position, this.vehicle.def.kind, this.input, this.state);
 
       if (this.input.justPressed("KeyF")) {
         this.state.setMode("pedestrian");

@@ -135,6 +135,36 @@ export function buildVehicleMesh(def: VehicleDef): BuiltVehicle {
       addLights(group, 1, 0.9, 2.3);
       break;
     }
+    case "moissonneuse": {
+      length = 7.5;
+      const body = box(2.3, 1.3, 4, bodyMat);
+      body.position.set(0, 1.1, -1);
+      const tank = box(1.8, 0.9, 2, new THREE.MeshStandardMaterial({ color: 0xd9dde2, roughness: 0.4, metalness: 0.2 }));
+      tank.position.set(0, 2.2, -1.6);
+      const cabin = box(1.3, 1.1, 1.2, new THREE.MeshStandardMaterial({ color: 0xdfe6f2, roughness: 0.35 }));
+      cabin.position.set(0, 2.1, 0.9);
+      const header = box(2.9, 0.5, 1.4, DARK);
+      header.position.set(0, 0.55, 3.3);
+      const reel = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.22, 0.22, 2.7, 12),
+        new THREE.MeshStandardMaterial({ color: 0xffc02e, roughness: 0.5 }),
+      );
+      reel.rotation.z = Math.PI / 2;
+      reel.position.set(0, 1.05, 3.6);
+      group.add(body, tank, cabin, header, reel);
+
+      const driveWheel = wheel(0.85, 0.55);
+      const rearWheel = wheel(0.4, 0.32);
+      [-1, 1].forEach((side) => {
+        const d = driveWheel.clone();
+        d.position.set(side * 1.05, 0.85, 0.6);
+        const r = rearWheel.clone();
+        r.position.set(side * 0.9, 0.4, -2.6);
+        group.add(d, r);
+      });
+      addLights(group, 1.05, 1.1, length / 2 - 1);
+      break;
+    }
   }
 
   group.traverse((obj) => {
