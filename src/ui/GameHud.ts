@@ -1,10 +1,17 @@
+import * as THREE from "three";
 import { World } from "../world/World";
 import { DriveHud } from "./DriveHud";
 import { WalkHud } from "./WalkHud";
 import { ToastStack } from "./Toast";
 import { WheelBannerUI } from "./WheelBanner";
 import { ShopUI } from "./ShopUI";
+import { TopInfoBar } from "./TopInfoBar";
+import { MiniMap } from "./MiniMap";
+import { WorldIcon } from "./WorldIcon";
+import { SHOP_POSITION } from "../world/Shop";
 import { copy } from "../content/copy";
+
+const SHOP_ICON_POINT = SHOP_POSITION.clone().add(new THREE.Vector3(0, 3, 0));
 
 export class GameHud {
   private driveHud: DriveHud;
@@ -13,6 +20,10 @@ export class GameHud {
   private toast: ToastStack;
   private wheelBanner: WheelBannerUI;
   private shop: ShopUI;
+  private topInfo: TopInfoBar;
+  private minimap: MiniMap;
+  private worldIcon: WorldIcon;
+  private minimapExpanded = false;
 
   constructor(hudRoot: HTMLElement, private world: World) {
     this.driveHud = new DriveHud(hudRoot, world.state, world.input);
@@ -24,12 +35,34 @@ export class GameHud {
       world.swapVehicle(def);
       this.shop.close();
     });
+    this.topInfo = new TopInfoBar(hudRoot, world.state, {
+      onHelp: () => world.state.toast("Commandes", "Joystick pour bouger · F sortir · E interagir/entrer"),
+      onMap: () => this.toggleMinimap(),
+      onShop: () => this.openShop(),
+      onMenu: () => world.state.toast("Menu", "Bientôt disponible."),
+    });
+    this.minimap = new MiniMap(hudRoot);
+    this.worldIcon = new WorldIcon(hudRoot);
 
     world.onWheelDetected = () => this.wheelBanner.showDetected();
     world.onWheelStep = (step, progress) => this.wheelBanner.setStepProgress(step, progress);
     world.onWheelCalibrated = () => this.wheelBanner.hideCalibration();
 
     void this.toast; // keeps the toast stack alive/subscribed
+  }
+
+  private openShop() {
+    if (this.shop.isOpen) {
+      this.shop.close();
+      return;
+    }
+    this.world.state.refuel();
+    this.shop.open(this.world.vehicle.def.id);
+  }
+
+  private toggleMinimap() {
+    this.minimapExpanded = !this.minimapExpanded;
+    this.minimap.root.classList.toggle("tt-minimap-expanded", this.minimapExpanded);
   }
 
   update() {
@@ -51,11 +84,20 @@ export class GameHud {
       this.swimHud.setPrompt(copy.swim.exitWater, "F");
     }
 
+    this.topInfo.update();
+    this.minimap.update(this.world);
     this.wheelBanner.update();
 
+    const iconTarget =
+      mode === "pedestrian" && this.world.nearVehicle
+        ? this.world.vehicle.object.position.clone().add(new THREE.Vector3(0, 2.2, 0))
+        : mode === "pedestrian" && this.world.nearShop
+          ? SHOP_ICON_POINT
+          : null;
+    this.worldIcon.update(this.world.rig.camera, iconTarget);
+
     if (this.world.nearShop && this.world.input.justPressed("KeyE") && mode === "pedestrian" && !this.world.nearVehicle) {
-      if (this.shop.isOpen) this.shop.close();
-      else this.shop.open(this.world.vehicle.def.id);
+      this.openShop();
     }
     if (this.shop.isOpen && this.world.input.justPressed("Escape")) this.shop.close();
   }

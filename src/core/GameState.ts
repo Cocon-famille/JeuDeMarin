@@ -50,6 +50,38 @@ export class GameState {
   playerName = "";
   plate = "";
 
+  // Tableau de bord façon sim réaliste — décoratif pour l'argent/saison,
+  // réel pour l'essence (consommée par Vehicle, rechargée à la boutique).
+  fuel = 1; // 0..1
+  private fuelWarned = false;
+  clockMinutes = 8 * 60; // 08:00 au démarrage
+  money = 91294;
+  season = "Sep";
+
+  refuel() {
+    this.fuel = 1;
+    this.fuelWarned = false;
+    this.toast("Plein d'essence", "Le réservoir est plein.");
+  }
+
+  checkFuelWarning() {
+    if (this.fuel <= 0.15 && !this.fuelWarned) {
+      this.fuelWarned = true;
+      this.toast("Réservoir presque vide", "Direction la pompe la plus proche.");
+    }
+  }
+
+  tick(dt: number) {
+    // 1 seconde réelle = 1 minute in-game — une journée dure 24 min.
+    this.clockMinutes = (this.clockMinutes + dt * 60) % 1440;
+  }
+
+  get clockLabel(): string {
+    const h = Math.floor(this.clockMinutes / 60);
+    const m = Math.floor(this.clockMinutes % 60);
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+
   setMode(next: Mode) {
     if (next === this.mode) return;
     const previous = this.mode;

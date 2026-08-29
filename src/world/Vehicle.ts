@@ -12,6 +12,7 @@ const ACCEL = 10;
 const BRAKE = 16;
 const DRAG = 6;
 const TURN_RATE = 1.8; // rad/s at speed
+const FUEL_DRAIN_PER_KM = 0.006; // ~165 km on a full tank — a session-length range, not a chore
 
 export class Vehicle {
   readonly object = new THREE.Group();
@@ -67,7 +68,8 @@ export class Vehicle {
     const steer = state.wheelConnected ? wheel.steeringValue : input.steer;
 
     const inWater = isInWater(this.object.position.x, this.object.position.z);
-    const topSpeed = inWater ? MAX_SPEED * 0.25 : MAX_SPEED;
+    const outOfFuel = state.fuel <= 0;
+    const topSpeed = (inWater ? MAX_SPEED * 0.25 : MAX_SPEED) * (outOfFuel ? 0.12 : 1);
 
     if (throttle > 0) this.speed += ACCEL * throttle * dt;
     else if (throttle < 0) this.speed += BRAKE * throttle * dt;
@@ -89,6 +91,10 @@ export class Vehicle {
 
     state.speedKmh = Math.round(Math.abs(this.speed) * 3.6);
     state.terrain = zoneAt(this.object.position.x);
+
+    const distanceKm = (Math.abs(this.speed) * dt) / 1000;
+    state.fuel = Math.max(0, state.fuel - distanceKm * FUEL_DRAIN_PER_KM);
+    state.checkFuelWarning();
 
     this.updateLights(dt, state);
   }

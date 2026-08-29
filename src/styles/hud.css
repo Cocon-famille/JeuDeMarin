@@ -19,6 +19,7 @@
 .tt-hud .tt-prompt,
 .tt-hud .tt-stick,
 .tt-hud .tt-hgrid button,
+.tt-hud .tt-icon-btn,
 .tt-hud .tt-side-actions .tt-pill {
   pointer-events: auto;
   cursor: pointer;
@@ -26,7 +27,7 @@
 
 .tt-topbar {
   position: absolute;
-  top: max(14px, env(safe-area-inset-top));
+  top: 150px;
   left: 14px;
   right: 14px;
   display: flex;
@@ -150,8 +151,8 @@
   height: 52px;
   min-width: var(--tt-touch);
   border-radius: 14px;
-  background: rgba(16, 20, 28, 0.8);
-  border: 1px solid rgba(244, 241, 234, 0.16);
+  background: rgba(10, 14, 20, 0.72);
+  border: 1px solid rgba(120, 180, 220, 0.3);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -521,6 +522,89 @@
   font-family: var(--tt-font-mono);
   font-size: 11px;
   color: rgba(244, 241, 234, 0.5);
+}
+
+/* ---------- top info bar (sim-style dashboard) ---------- */
+.tt-topinfo {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  left: 10px;
+  right: 10px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tt-info-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.tt-info-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(10, 14, 20, 0.72);
+  border: 1px solid rgba(120, 180, 220, 0.25);
+  font-size: 12px;
+  font-weight: 700;
+  color: #d8e6f2;
+  white-space: nowrap;
+}
+.tt-info-chip svg { flex: none; }
+.tt-info-chip.tt-fuel-low { border-color: #ff5a5a; color: #ff9a9a; }
+.tt-icon-row {
+  display: flex;
+  gap: 6px;
+}
+.tt-icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(10, 14, 20, 0.72);
+  border: 1px solid rgba(120, 180, 220, 0.35);
+  color: #bcd6ea;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.tt-icon-btn:active { background: rgba(94, 168, 219, 0.3); }
+
+/* ---------- minimap ---------- */
+.tt-minimap-wrap {
+  position: absolute;
+  top: 58px;
+  left: 10px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(120, 180, 220, 0.35);
+  background: rgba(10, 14, 20, 0.72);
+}
+.tt-minimap-wrap canvas { display: block; }
+.tt-minimap-wrap.tt-minimap-expanded canvas { width: 224px; height: 139px; }
+
+/* ---------- floating in-world interaction icon ---------- */
+.tt-world-icon {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: 50%;
+  border: 2px solid #7ec4f0;
+  background: rgba(15, 30, 45, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #cfe9fb;
+  animation: tt-world-icon-pulse 1.6s ease-in-out infinite;
+}
+@keyframes tt-world-icon-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(126, 196, 240, 0.45); }
+  50% { box-shadow: 0 0 0 8px rgba(126, 196, 240, 0); }
 }
 
 .tt-prompt {

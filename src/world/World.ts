@@ -83,6 +83,7 @@ export class World {
   update(dt: number) {
     this.wheel.update();
     this.water.animate();
+    this.state.tick(dt);
 
     if (this.state.mode === "drive") {
       this.vehicle.update(dt, this.input, this.wheel, this.state);
