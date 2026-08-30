@@ -47,6 +47,7 @@ export class GameHud {
       onShop: () => this.openShop(),
       onMenu: () => (this.tasks.isOpen ? this.tasks.close() : this.tasks.open()),
       onMoney: () => (this.bank.isOpen ? this.bank.close() : this.bank.open()),
+      onView: () => world.toggleView(),
     });
     this.minimap = new MiniMap(hudRoot);
     this.worldIcon = new WorldIcon(hudRoot);

@@ -36,6 +36,9 @@ export class World {
   onWheelCalibrated?: () => void;
   onWheelStep?: (step: 0 | 1 | 2, progress: number) => void;
 
+  /** Vue conducteur : caméra rigide, fixée au pare-brise, plutôt que la caméra suiveuse orbitable. */
+  viewMode: "chase" | "cockpit" = "chase";
+
   // Caméra suiveuse orbitable : glisser sur le décor tourne autour du
   // véhicule/personnage pour voir l'avant comme l'arrière.
   private orbitYaw = 0;
@@ -96,6 +99,7 @@ export class World {
       this.gearbox.update(this.input);
       this.farm.update(dt, this.vehicle.object.position, this.vehicle.def.kind, this.input, this.state);
 
+      if (this.input.justPressed("KeyV")) this.toggleView();
       if (this.input.justPressed("KeyF")) {
         this.state.setMode("pedestrian");
         const side = new THREE.Vector3(Math.cos(this.vehicle.heading), 0, -Math.sin(this.vehicle.heading));
@@ -129,7 +133,7 @@ export class World {
       }
     }
 
-    this.updateCamera();
+    this.updateCamera(dt);
     this.rig.render();
   }
 
@@ -151,8 +155,36 @@ export class World {
     window.addEventListener("pointercancel", () => (this.orbitDragging = false));
   }
 
-  private updateCamera() {
+  toggleView() {
+    this.viewMode = this.viewMode === "chase" ? "cockpit" : "chase";
+    this.state.toast(this.viewMode === "cockpit" ? "Vue conducteur" : "Vue extérieure");
+  }
+
+  private updateCamera(dt: number) {
     const isDrive = this.state.mode === "drive";
+    const inCockpit = isDrive && this.viewMode === "cockpit";
+    // Real Kenney models are double-sided — sitting the camera inside the
+    // shell (no interior is modeled) would render the inside of the paint
+    // job filling the whole frame instead of the world outside. Hiding the
+    // vehicle's own mesh while its camera looks out is the standard
+    // first-person-vehicle trick when there's no dashboard to show.
+    this.vehicle.object.visible = !inCockpit;
+    if (inCockpit) {
+      this.updateCockpitCamera();
+      return;
+    }
+
+    // Une fois qu'on relâche le glissé, la caméra revient d'elle-même
+    // derrière le véhicule/personnage — sinon un angle laissé de travers
+    // (même par un glissement accidentel) fait croire que les commandes se
+    // sont inversées, alors qu'elles n'ont jamais bougé : seule la vue a
+    // tourné, et "avancer" s'affiche désormais comme un mouvement vers soi.
+    if (!this.orbitDragging) {
+      const pull = Math.min(1, dt * 2.5);
+      this.orbitYaw = THREE.MathUtils.lerp(this.orbitYaw, 0, pull);
+      this.orbitPitch = THREE.MathUtils.lerp(this.orbitPitch, 0, pull);
+    }
+
     const target = isDrive ? this.vehicle.object : this.walker.object;
     const heading = isDrive ? this.vehicle.heading : this.walker.heading;
 
@@ -176,5 +208,24 @@ export class World {
     this.rig.camera.position.lerp(desired, 0.15);
     const lookAt = target.position.clone().add(new THREE.Vector3(0, 1.2, 0));
     this.rig.camera.lookAt(lookAt);
+  }
+
+  /**
+   * Vue conducteur : la caméra est rigidement attachée à peu près là où
+   * serait la tête du conducteur (pas d'interpolation — un hood cam qui
+   * traîne derrière le véhicule serait faux), toujours droit devant.
+   * Comme le véhicule n'a pas d'habitacle modélisé, se placer "dedans"
+   * laisse simplement les faces (culled, tournées vers l'extérieur) de la
+   * carrosserie invisibles depuis l'intérieur plutôt que de les afficher
+   * à l'envers.
+   */
+  private updateCockpitCamera() {
+    const v = this.vehicle;
+    const forward = new THREE.Vector3(Math.sin(v.heading), 0, Math.cos(v.heading));
+    const seatHeight = 1.2 + v.length * 0.045;
+    const seatForward = v.length * 0.08;
+    const eye = v.object.position.clone().addScaledVector(forward, seatForward).add(new THREE.Vector3(0, seatHeight, 0));
+    this.rig.camera.position.copy(eye);
+    this.rig.camera.lookAt(eye.clone().addScaledVector(forward, 10));
   }
 }

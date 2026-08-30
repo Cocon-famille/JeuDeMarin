@@ -13,4 +13,5 @@ export const icons = {
   menu: svg('<path d="M4 7h16M4 12h16M4 17h16"/>'),
   arrowInBox: svg('<rect x="4" y="10" width="16" height="10" rx="1.5"/><path d="M12 3v9M8.5 8.5 12 12l3.5-3.5"/>'),
   door: svg('<path d="M6 3h9v18H6z"/><path d="M15 12h4M18 10l2 2-2 2"/>'),
+  camera: svg('<path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.3"/>'),
 };

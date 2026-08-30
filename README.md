@@ -15,6 +15,7 @@ npm run typecheck
 
 - **Boucle de jeu complète** : écran titre (choix du terrain) → chargement → conduite → sortie à pied (`F`) → marche → entrée dans l'eau sans transition → nage → remontée à pied → réembarquement (`E`).
 - **Trois terrains** côte à côte (ferme / chantier / ville), chacun avec sa couleur et des accessoires low-poly de décor.
+- **Vue conducteur** (`V` ou l'icône caméra) : bascule entre la caméra suiveuse orbitable et une caméra rigide fixée à peu près à hauteur du conducteur, toujours droit devant. En vue extérieure, la caméra revient d'elle-même derrière le véhicule dès qu'on relâche le glissé, pour ne jamais laisser un angle de travers faire croire que les commandes sont inversées.
 - **Collisions** (`src/world/Collision.ts`) : maisons, bottes de foin, caisses et immeubles bloquent vraiment le passage (approximés en cercles) au lieu d'être traversables — le véhicule perd sa vitesse à l'impact, le piéton est simplement stoppé. Les props ne peuvent plus apparaître près des points de réapparition, pour ne jamais coincer le joueur à l'arrivée.
 - **Piéton** (`src/world/Walker.ts`) : silhouette basse-poly articulée (tête, torse, bras, jambes) — aucun des packs Kenney fournis ne contient de personnage, donc toujours procédural, mais plus qu'une simple capsule.
 - **HUD fidèle aux maquettes** : bandeau de zone, badge de mode (un seul signal actif à la fois — ambre/vert/bleu), compteur de vitesse avec clignotants, CTA contextuel, boutons tactiles (gauche/warnings/phares/droite), jauge de souffle en nage.
@@ -70,3 +71,4 @@ src/
 | `G` | Changer de mode de boîte (auto → séquentiel → grille H) |
 | `A` / `Q` | Monter / descendre un rapport (boîte séquentielle) |
 | `1`-`6`, `0` | Sélection directe (grille H, `0` = marche arrière) |
+| `V` | Vue conducteur / vue extérieure |

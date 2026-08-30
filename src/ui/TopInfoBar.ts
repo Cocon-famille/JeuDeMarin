@@ -8,6 +8,7 @@ export interface TopInfoBarActions {
   onShop: () => void;
   onMenu: () => void;
   onMoney: () => void;
+  onView: () => void;
 }
 
 /** Barre du haut façon tableau de bord de sim réaliste : date/heure/argent/essence + accès rapides. */
@@ -37,13 +38,15 @@ export class TopInfoBar {
     const iconRow = el("div", { className: "tt-icon-row" });
     const help = this.iconButton(icons.help);
     const map = this.iconButton(icons.pin);
+    const view = this.iconButton(icons.camera);
     const shop = this.iconButton(icons.basket);
     const menu = this.iconButton(icons.menu);
     help.addEventListener("click", actions.onHelp);
     map.addEventListener("click", actions.onMap);
+    view.addEventListener("click", actions.onView);
     shop.addEventListener("click", actions.onShop);
     menu.addEventListener("click", actions.onMenu);
-    iconRow.append(help, map, shop, menu);
+    iconRow.append(help, map, view, shop, menu);
 
     this.root.append(chips, iconRow);
     parent.appendChild(this.root);

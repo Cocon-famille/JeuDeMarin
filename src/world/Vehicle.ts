@@ -26,12 +26,14 @@ export class Vehicle {
   /** Décalage appliqué ce tour-ci quand la position boucle sur le bord opposé du monde — pour que la caméra suive sans à-coup. */
   wrapDeltaX = 0;
   wrapDeltaZ = 0;
+  length = 4;
   private collisionRadius = 1.2;
 
   constructor(def: VehicleDef, scene: THREE.Scene, state: GameState) {
     this.def = def;
     this.state = state;
     const built = buildVehicleMesh(def);
+    this.length = built.length;
     this.collisionRadius = Math.max(1, built.length * 0.24);
     addPlates(built.group, built.length / 2, state.playerName, state.plate);
     this.object.add(built.group);
@@ -52,6 +54,7 @@ export class Vehicle {
     this.object.clear();
     this.def = def;
     const built = buildVehicleMesh(def);
+    this.length = built.length;
     this.collisionRadius = Math.max(1, built.length * 0.24);
     addPlates(built.group, built.length / 2, this.state.playerName, this.state.plate);
     this.object.add(built.group);
