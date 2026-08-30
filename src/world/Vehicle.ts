@@ -6,6 +6,7 @@ import { VehicleDef } from "./VehicleCatalog";
 import { buildVehicleMesh } from "./VehicleMeshFactory";
 import { addPlates } from "./Plate";
 import { isInWater, zoneAt, wrapWorld } from "./Terrain";
+import { resolveCollision } from "./Collision";
 
 const MAX_SPEED = 22; // m/s casual arcade top speed, not a real vehicle's
 const ACCEL = 10;
@@ -25,11 +26,13 @@ export class Vehicle {
   /** Décalage appliqué ce tour-ci quand la position boucle sur le bord opposé du monde — pour que la caméra suive sans à-coup. */
   wrapDeltaX = 0;
   wrapDeltaZ = 0;
+  private collisionRadius = 1.2;
 
   constructor(def: VehicleDef, scene: THREE.Scene, state: GameState) {
     this.def = def;
     this.state = state;
     const built = buildVehicleMesh(def);
+    this.collisionRadius = Math.max(1, built.length * 0.24);
     addPlates(built.group, built.length / 2, state.playerName, state.plate);
     this.object.add(built.group);
     scene.add(this.object);
@@ -49,6 +52,7 @@ export class Vehicle {
     this.object.clear();
     this.def = def;
     const built = buildVehicleMesh(def);
+    this.collisionRadius = Math.max(1, built.length * 0.24);
     addPlates(built.group, built.length / 2, this.state.playerName, this.state.plate);
     this.object.add(built.group);
     scene.add(this.object);
@@ -87,6 +91,7 @@ export class Vehicle {
 
     const dir = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading));
     this.object.position.addScaledVector(dir, this.speed * dt);
+    if (resolveCollision(this.object.position, this.collisionRadius)) this.speed *= 0.3;
     const wrapped = wrapWorld(this.object.position.x, this.object.position.z);
     this.wrapDeltaX = wrapped.x - this.object.position.x;
     this.wrapDeltaZ = wrapped.z - this.object.position.z;

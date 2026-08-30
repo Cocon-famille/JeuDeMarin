@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { Terrain as TerrainZone } from "../core/GameState";
+import { registerObstacle } from "./Collision";
 
 // Trois terrains côte à côte le long de X. Une couleur par terrain — elle
 // colore le décor et le titre de zone, jamais un bouton (règle palette §03).
@@ -74,9 +75,9 @@ export function buildTerrain(scene: THREE.Scene) {
   }
 
   // Quelques accessoires low-poly par terrain, pour lire l'espace sans assets d'art.
-  addProps(group, ZONE_BOUNDS.ferme, () => makeHayBale());
-  addProps(group, ZONE_BOUNDS.chantier, () => makeCrate());
-  addProps(group, ZONE_BOUNDS.ville, () => makeBuilding());
+  addProps(group, ZONE_BOUNDS.ferme, () => makeHayBale(), 1.3);
+  addProps(group, ZONE_BOUNDS.chantier, () => makeCrate(), 1.4);
+  addProps(group, ZONE_BOUNDS.ville, () => makeBuilding(), 3.2);
 
   // Fosse du lac (légèrement encaissée) sous la zone d'eau. Le dessus de
   // la fosse doit rester SOUS la surface de l'eau (WATER_BOUNDS.surfaceY),
@@ -98,16 +99,30 @@ export function buildTerrain(scene: THREE.Scene) {
   return group;
 }
 
-function addProps(group: THREE.Group, zone: { minX: number; maxX: number }, make: () => THREE.Object3D) {
+// Chaque terrain fait réapparaître le joueur au milieu de sa plage en X, z=0
+// (World.spawnAt) — les props (maintenant solides, voir Collision.ts) ne
+// doivent jamais y atterrir, sous peine de coincer le joueur dès l'arrivée.
+const SPAWN_CLEAR_RADIUS = 16;
+
+function addProps(group: THREE.Group, zone: { minX: number; maxX: number }, make: () => THREE.Object3D, obstacleRadius: number) {
+  const spawnX = (zone.minX + zone.maxX) / 2;
   for (let i = 0; i < 6; i++) {
+    let x = 0;
+    let z = 0;
+    let attempts = 0;
+    do {
+      x = zone.minX + 12 + Math.random() * (zone.maxX - zone.minX - 24);
+      z = -80 + Math.random() * 160;
+      attempts++;
+    } while (Math.hypot(x - spawnX, z) < SPAWN_CLEAR_RADIUS && attempts < 20);
+    if (Math.hypot(x - spawnX, z) < SPAWN_CLEAR_RADIUS) continue;
     const prop = make();
-    const x = zone.minX + 12 + Math.random() * (zone.maxX - zone.minX - 24);
-    const z = -80 + Math.random() * 160;
     if (isInWater(x, z)) continue;
     prop.position.set(x, prop.position.y, z);
     prop.rotation.y = Math.random() * Math.PI * 2;
     prop.castShadow = true;
     group.add(prop);
+    registerObstacle(x, z, obstacleRadius);
   }
 }
 

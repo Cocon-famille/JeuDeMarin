@@ -227,7 +227,11 @@ function attachRealModel(group: THREE.Group, visual: THREE.Group, def: VehicleDe
     // move them onto the real model's actual (differently proportioned)
     // footprint so blinkers/headlights sit on the body, not floating
     // beside it.
-    repositionLights(group, (size.x * scale) / 2, size.y * scale * 0.4, targetLength / 2, size.y * scale);
+    // Real car bodies taper toward the bumpers — the model's overall
+    // half-width (measured at the widest point, the doors) is wider than
+    // the front/rear corners where every light sits, so shrink it or the
+    // dots hang past the sheet metal instead of sitting on it.
+    repositionLights(group, (size.x * scale) / 2 * 0.7, size.y * scale * 0.35, (targetLength / 2) * 0.96, size.y * scale);
   });
 }
 

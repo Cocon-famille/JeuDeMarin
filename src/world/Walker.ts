@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { GameState } from "../core/GameState";
 import { InputManager } from "../core/InputManager";
 import { isInWater, wrapWorld, zoneAt } from "./Terrain";
+import { resolveCollision } from "./Collision";
 import { copy } from "../content/copy";
 
 const WALK_SPEED = 4.5;
@@ -21,13 +22,7 @@ export class Walker {
   wrapDeltaZ = 0;
 
   constructor(scene: THREE.Scene) {
-    const body = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.35, 1.1, 4, 8),
-      new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.6 }),
-    );
-    body.position.y = 0.9;
-    body.castShadow = true;
-    this.object.add(body);
+    this.object.add(buildFigure());
     scene.add(this.object);
   }
 
@@ -56,6 +51,7 @@ export class Walker {
     this.object.rotation.y = this.heading;
     const dir = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading));
     this.object.position.addScaledVector(dir, input.throttle * speed * dt);
+    resolveCollision(this.object.position, 0.4);
     const wrapped = wrapWorld(this.object.position.x, this.object.position.z);
     this.wrapDeltaX = wrapped.x - this.object.position.x;
     this.wrapDeltaZ = wrapped.z - this.object.position.z;
@@ -83,4 +79,51 @@ export class Walker {
       if (wasSwim) state.breath = 1;
     }
   }
+}
+
+/**
+ * No character asset was supplied in any of the Kenney packs (Car Kit and
+ * City Kit Suburban are vehicles/buildings; the farm pack is 2D sprites) —
+ * so this is still procedural, but a jointed head/torso/arms/legs reads as
+ * a person at a glance instead of the single beige capsule it replaces.
+ */
+function buildFigure(): THREE.Group {
+  const skin = new THREE.MeshStandardMaterial({ color: 0xe0a877, roughness: 0.7 });
+  const shirt = new THREE.MeshStandardMaterial({ color: 0xdb5a3c, roughness: 0.6 });
+  const pants = new THREE.MeshStandardMaterial({ color: 0x2f3b52, roughness: 0.7 });
+  const hair = new THREE.MeshStandardMaterial({ color: 0x3a2a20, roughness: 0.8 });
+
+  const figure = new THREE.Group();
+
+  const legGeo = new THREE.CapsuleGeometry(0.13, 0.62, 4, 8);
+  for (const side of [-1, 1]) {
+    const leg = new THREE.Mesh(legGeo, pants);
+    leg.position.set(side * 0.12, 0.4, 0);
+    figure.add(leg);
+  }
+
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.26, 0.5, 4, 8), shirt);
+  torso.position.y = 1.05;
+  figure.add(torso);
+
+  const armGeo = new THREE.CapsuleGeometry(0.09, 0.5, 4, 8);
+  for (const side of [-1, 1]) {
+    const arm = new THREE.Mesh(armGeo, skin);
+    arm.position.set(side * 0.36, 1.02, 0);
+    arm.rotation.z = side * 0.15;
+    figure.add(arm);
+  }
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), skin);
+  head.position.y = 1.55;
+  figure.add(head);
+
+  const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.21, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), hair);
+  hairCap.position.y = 1.58;
+  figure.add(hairCap);
+
+  figure.traverse((obj) => {
+    if (obj instanceof THREE.Mesh) obj.castShadow = true;
+  });
+  return figure;
 }

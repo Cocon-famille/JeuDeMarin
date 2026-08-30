@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { CORE_BOUNDS, WORLD_HALF } from "./Terrain";
 import { loadModel } from "./ModelLoader";
+import { registerObstacle } from "./Collision";
 
 const BUILDING_TYPES = "abcdefghij".split("").map((letter) => `/models/buildings/building-type-${letter}.glb`);
 
@@ -94,6 +95,7 @@ function addHouses(group: THREE.Group) {
         const h = 3.5 + Math.random() * 2.5;
         const rotY = Math.random() * Math.PI * 2;
         placements.push({ x, z, h, w, d, rotY });
+        registerObstacle(x, z, (Math.max(w, d) / 2) * 0.85);
       }
     }
   }
