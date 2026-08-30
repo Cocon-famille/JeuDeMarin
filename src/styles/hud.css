@@ -96,7 +96,11 @@
 .tt-speed-pill {
   padding: 9px 16px;
   border-radius: 12px;
-  background: var(--tt-hud-bg);
+  /* Complètement opaque, pas la transparence habituelle du HUD : la
+     plaque d'immatriculation du véhicule (un vrai objet 3D, pas du HUD)
+     peut se retrouver exactement derrière ce pastille à l'écran, et un
+     fond translucide la laissait transparaître derrière le chiffre. */
+  background: #10141c;
   border: 1px solid rgba(244, 241, 234, 0.14);
   display: flex;
   align-items: baseline;
