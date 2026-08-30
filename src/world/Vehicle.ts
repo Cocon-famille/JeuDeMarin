@@ -5,7 +5,7 @@ import { WheelManager } from "../core/WheelManager";
 import { VehicleDef } from "./VehicleCatalog";
 import { buildVehicleMesh } from "./VehicleMeshFactory";
 import { addPlates } from "./Plate";
-import { isInWater, zoneAt, clampToWorld } from "./Terrain";
+import { isInWater, zoneAt, wrapWorld } from "./Terrain";
 
 const MAX_SPEED = 22; // m/s casual arcade top speed, not a real vehicle's
 const ACCEL = 10;
@@ -22,6 +22,9 @@ export class Vehicle {
   private blinkerPhase = 0;
   private beaconAngle = 0;
   private state: GameState;
+  /** Décalage appliqué ce tour-ci quand la position boucle sur le bord opposé du monde — pour que la caméra suive sans à-coup. */
+  wrapDeltaX = 0;
+  wrapDeltaZ = 0;
 
   constructor(def: VehicleDef, scene: THREE.Scene, state: GameState) {
     this.def = def;
@@ -37,6 +40,8 @@ export class Vehicle {
     this.heading = heading;
     this.object.rotation.y = heading;
     this.speed = 0;
+    this.wrapDeltaX = 0;
+    this.wrapDeltaZ = 0;
   }
 
   swapTo(def: VehicleDef, scene: THREE.Scene) {
@@ -82,10 +87,11 @@ export class Vehicle {
 
     const dir = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading));
     this.object.position.addScaledVector(dir, this.speed * dt);
-    const clamped = clampToWorld(this.object.position.x, this.object.position.z);
-    if (clamped.x !== this.object.position.x || clamped.z !== this.object.position.z) this.speed *= 0.5;
-    this.object.position.x = clamped.x;
-    this.object.position.z = clamped.z;
+    const wrapped = wrapWorld(this.object.position.x, this.object.position.z);
+    this.wrapDeltaX = wrapped.x - this.object.position.x;
+    this.wrapDeltaZ = wrapped.z - this.object.position.z;
+    this.object.position.x = wrapped.x;
+    this.object.position.z = wrapped.z;
     if (inWater) this.object.position.y = -0.05 + Math.sin(performance.now() / 300) * 0.03;
     else this.object.position.y = 0;
 

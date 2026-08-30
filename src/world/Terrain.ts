@@ -11,22 +11,20 @@ export const ZONE_BOUNDS: Record<TerrainZone, { minX: number; maxX: number; colo
 
 export const WATER_BOUNDS = { minX: 90, maxX: 175, minZ: 40, maxZ: 100, surfaceY: -0.15 };
 
-// Le sol fait 220 de profondeur (z: -110..110) — au-delà, c'est le vide.
-// Une bordure invisible garde le joueur dans le décor plutôt que de le
-// laisser sortir sans repère pour revenir.
-const WORLD_MARGIN = 3;
-export const WORLD_BOUNDS = {
-  minX: ZONE_BOUNDS.ferme.minX + WORLD_MARGIN,
-  maxX: ZONE_BOUNDS.ville.maxX - WORLD_MARGIN,
-  minZ: -110 + WORLD_MARGIN,
-  maxZ: 110 - WORLD_MARGIN,
-};
+// Les trois terrains ne couvrent que le centre (x: -180..180, z: -110..110).
+// Au-delà, plutôt qu'un mur invisible ou le vide, le monde continue : sol
+// générique + maisons + routes jusqu'à WORLD_HALF, puis on boucle sur le
+// bord opposé — jamais de bord qu'on puisse atteindre.
+export const CORE_BOUNDS = { minX: -180, maxX: 180, minZ: -110, maxZ: 110 };
+export const WORLD_HALF = 900;
 
-export function clampToWorld(x: number, z: number): { x: number; z: number } {
-  return {
-    x: THREE.MathUtils.clamp(x, WORLD_BOUNDS.minX, WORLD_BOUNDS.maxX),
-    z: THREE.MathUtils.clamp(z, WORLD_BOUNDS.minZ, WORLD_BOUNDS.maxZ),
-  };
+export function wrapWorld(x: number, z: number): { x: number; z: number } {
+  return { x: wrapAxis(x, WORLD_HALF), z: wrapAxis(z, WORLD_HALF) };
+}
+
+function wrapAxis(v: number, half: number): number {
+  const span = half * 2;
+  return ((((v + half) % span) + span) % span) - half;
 }
 
 export function zoneAt(x: number): TerrainZone {

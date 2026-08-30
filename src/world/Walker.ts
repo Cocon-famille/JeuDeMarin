@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { GameState } from "../core/GameState";
 import { InputManager } from "../core/InputManager";
-import { isInWater, clampToWorld, zoneAt } from "./Terrain";
+import { isInWater, wrapWorld, zoneAt } from "./Terrain";
 import { copy } from "../content/copy";
 
 const WALK_SPEED = 4.5;
@@ -17,6 +17,8 @@ export class Walker {
   readonly object = new THREE.Group();
   heading = 0;
   depth = 0; // 0 = surface/ground, up to 3 = fully submerged
+  wrapDeltaX = 0;
+  wrapDeltaZ = 0;
 
   constructor(scene: THREE.Scene) {
     const body = new THREE.Mesh(
@@ -34,6 +36,8 @@ export class Walker {
     this.heading = heading;
     this.object.rotation.y = heading;
     this.depth = 0;
+    this.wrapDeltaX = 0;
+    this.wrapDeltaZ = 0;
   }
 
   update(dt: number, input: InputManager, state: GameState) {
@@ -52,9 +56,11 @@ export class Walker {
     this.object.rotation.y = this.heading;
     const dir = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading));
     this.object.position.addScaledVector(dir, input.throttle * speed * dt);
-    const clamped = clampToWorld(this.object.position.x, this.object.position.z);
-    this.object.position.x = clamped.x;
-    this.object.position.z = clamped.z;
+    const wrapped = wrapWorld(this.object.position.x, this.object.position.z);
+    this.wrapDeltaX = wrapped.x - this.object.position.x;
+    this.wrapDeltaZ = wrapped.z - this.object.position.z;
+    this.object.position.x = wrapped.x;
+    this.object.position.z = wrapped.z;
     state.terrain = zoneAt(this.object.position.x);
     state.visitZone(state.terrain);
 

@@ -8,7 +8,8 @@ import { SceneRig } from "./Scene";
 import { buildTerrain } from "./Terrain";
 import { buildWater } from "./Water";
 import { buildShop, isNearShop, PARKING_SPOT } from "./Shop";
-import { clampToWorld } from "./Terrain";
+import { wrapWorld } from "./Terrain";
+import { buildExtendedWorld } from "./ExtendedWorld";
 import { Vehicle } from "./Vehicle";
 import { Walker } from "./Walker";
 import { Farm } from "./Farm";
@@ -49,6 +50,7 @@ export class World {
     buildTerrain(this.rig.scene);
     this.water = buildWater(this.rig.scene);
     buildShop(this.rig.scene);
+    buildExtendedWorld(this.rig.scene);
     this.farm = new Farm(this.rig.scene);
     this.setupOrbitDrag(canvas);
 
@@ -121,9 +123,9 @@ export class World {
       if (this.state.mode === "swim" && this.input.justPressed("KeyF")) {
         const dir = new THREE.Vector3(Math.sin(this.walker.heading), 0, Math.cos(this.walker.heading));
         this.walker.object.position.addScaledVector(dir, 3);
-        const clamped = clampToWorld(this.walker.object.position.x, this.walker.object.position.z);
-        this.walker.object.position.x = clamped.x;
-        this.walker.object.position.z = clamped.z;
+        const wrapped = wrapWorld(this.walker.object.position.x, this.walker.object.position.z);
+        this.walker.object.position.x = wrapped.x;
+        this.walker.object.position.z = wrapped.z;
       }
     }
 
@@ -150,8 +152,20 @@ export class World {
   }
 
   private updateCamera() {
-    const target = this.state.mode === "drive" ? this.vehicle.object : this.walker.object;
-    const heading = this.state.mode === "drive" ? this.vehicle.heading : this.walker.heading;
+    const isDrive = this.state.mode === "drive";
+    const target = isDrive ? this.vehicle.object : this.walker.object;
+    const heading = isDrive ? this.vehicle.heading : this.walker.heading;
+
+    // Le monde boucle sur lui-même (Terrain.wrapWorld) : quand la position
+    // suivie saute d'un bord à l'autre, on décale la caméra du même vecteur
+    // pour que le bouclage soit invisible plutôt qu'un grand panoramique.
+    const wrapDeltaX = isDrive ? this.vehicle.wrapDeltaX : this.walker.wrapDeltaX;
+    const wrapDeltaZ = isDrive ? this.vehicle.wrapDeltaZ : this.walker.wrapDeltaZ;
+    if (wrapDeltaX !== 0 || wrapDeltaZ !== 0) {
+      this.rig.camera.position.x += wrapDeltaX;
+      this.rig.camera.position.z += wrapDeltaZ;
+    }
+
     const yaw = heading + this.orbitYaw;
     const pitch = this.orbitPitch;
     const distance = 8;
