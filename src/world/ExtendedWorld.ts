@@ -1,5 +1,9 @@
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { CORE_BOUNDS, WORLD_HALF } from "./Terrain";
+import { loadModel } from "./ModelLoader";
+
+const BUILDING_TYPES = "abcdefghij".split("").map((letter) => `/models/buildings/building-type-${letter}.glb`);
 
 const SUBURB_COLOR = 0x6f9a54;
 const ROAD_COLOR = 0x484d55;
@@ -64,16 +68,18 @@ function addPlane(group: THREE.Group, minX: number, maxX: number, minZ: number, 
   group.add(mesh);
 }
 
+interface HousePlacement {
+  x: number;
+  z: number;
+  h: number;
+  w: number;
+  d: number;
+  rotY: number;
+}
+
 function addHouses(group: THREE.Group) {
   const c = CORE_BOUNDS;
-  const bodyMatrices: THREE.Matrix4[] = [];
-  const roofMatrices: THREE.Matrix4[] = [];
-  const bodyColors: THREE.Color[] = [];
-
-  const m = new THREE.Matrix4();
-  const pos = new THREE.Vector3();
-  const quat = new THREE.Quaternion();
-  const scale = new THREE.Vector3();
+  const placements: HousePlacement[] = [];
 
   for (let gx = -WORLD_HALF + BLOCK / 2; gx < WORLD_HALF; gx += BLOCK) {
     for (let gz = -WORLD_HALF + BLOCK / 2; gz < WORLD_HALF; gz += BLOCK) {
@@ -87,39 +93,109 @@ function addHouses(group: THREE.Group) {
         const d = 5 + Math.random() * 3;
         const h = 3.5 + Math.random() * 2.5;
         const rotY = Math.random() * Math.PI * 2;
-        quat.setFromEuler(new THREE.Euler(0, rotY, 0));
-
-        pos.set(x, h / 2, z);
-        scale.set(w, h, d);
-        m.compose(pos, quat, scale);
-        bodyMatrices.push(m.clone());
-        bodyColors.push(new THREE.Color(HOUSE_COLORS[Math.floor(Math.random() * HOUSE_COLORS.length)]));
-
-        pos.set(x, h + 0.6, z);
-        scale.set(w * 0.88, 1.2, d * 0.88);
-        m.compose(pos, quat, scale);
-        roofMatrices.push(m.clone());
+        placements.push({ x, z, h, w, d, rotY });
       }
     }
   }
 
-  const bodyMesh = new THREE.InstancedMesh(
-    new THREE.BoxGeometry(1, 1, 1),
-    new THREE.MeshStandardMaterial({ roughness: 0.8 }),
-    bodyMatrices.length,
-  );
-  bodyMatrices.forEach((mat, i) => bodyMesh.setMatrixAt(i, mat));
-  bodyColors.forEach((color, i) => bodyMesh.setColorAt(i, color));
-  bodyMesh.castShadow = true;
-  bodyMesh.receiveShadow = true;
-  group.add(bodyMesh);
+  const boxes = buildBoxHouses(placements);
+  group.add(boxes);
+  attachRealBuildings(group, boxes, placements);
+}
 
+/** Instant low-poly placeholder — box body + roof cap, same as before. */
+function buildBoxHouses(placements: HousePlacement[]): THREE.Group {
+  const wrap = new THREE.Group();
+  wrap.name = "proceduralHouses";
+  const m = new THREE.Matrix4();
+  const pos = new THREE.Vector3();
+  const quat = new THREE.Quaternion();
+  const scale = new THREE.Vector3();
+  const bodyColors: THREE.Color[] = [];
+
+  const bodyMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ roughness: 0.8 }), placements.length);
   const roofMesh = new THREE.InstancedMesh(
     new THREE.BoxGeometry(1, 1, 1),
     new THREE.MeshStandardMaterial({ color: 0x8a4a3a, roughness: 0.7 }),
-    roofMatrices.length,
+    placements.length,
   );
-  roofMatrices.forEach((mat, i) => roofMesh.setMatrixAt(i, mat));
+
+  placements.forEach((p, i) => {
+    quat.setFromEuler(new THREE.Euler(0, p.rotY, 0));
+    pos.set(p.x, p.h / 2, p.z);
+    scale.set(p.w, p.h, p.d);
+    m.compose(pos, quat, scale);
+    bodyMesh.setMatrixAt(i, m);
+    bodyColors.push(new THREE.Color(HOUSE_COLORS[Math.floor(Math.random() * HOUSE_COLORS.length)]));
+
+    pos.set(p.x, p.h + 0.6, p.z);
+    scale.set(p.w * 0.88, 1.2, p.d * 0.88);
+    m.compose(pos, quat, scale);
+    roofMesh.setMatrixAt(i, m);
+  });
+  bodyColors.forEach((color, i) => bodyMesh.setColorAt(i, color));
+  bodyMesh.castShadow = true;
+  bodyMesh.receiveShadow = true;
   roofMesh.castShadow = true;
-  group.add(roofMesh);
+  wrap.add(bodyMesh, roofMesh);
+  return wrap;
+}
+
+/**
+ * Fire-and-forget: loads the 10 real Kenney City Kit building models and,
+ * once all are in, merges one clone per placement (scaled to the same
+ * random height the box placeholder used) into a single static mesh — one
+ * draw call for the whole suburb instead of hundreds. If any model fails
+ * to load (offline, missing file) the box placeholders stay up forever.
+ */
+function attachRealBuildings(group: THREE.Group, fallback: THREE.Group, placements: HousePlacement[]) {
+  Promise.all(BUILDING_TYPES.map((url) => loadModel(url))).then((models) => {
+    const loaded = models.filter((m): m is THREE.Group => m !== null);
+    if (loaded.length === 0) return;
+
+    const findMesh = (model: THREE.Group): THREE.Mesh | undefined => {
+      let found: THREE.Mesh | undefined;
+      model.traverse((obj) => {
+        if (!found && obj instanceof THREE.Mesh) found = obj;
+      });
+      return found;
+    };
+    const naturalGeometries = loaded.map((model) => findMesh(model)?.geometry ?? null);
+    const material = findMesh(loaded[0])?.material as THREE.Material | undefined;
+    if (!material) return;
+
+    const m = new THREE.Matrix4();
+    const pieces: THREE.BufferGeometry[] = [];
+    const box = new THREE.Box3();
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+
+    placements.forEach((p) => {
+      const geo = naturalGeometries[Math.floor(Math.random() * naturalGeometries.length)];
+      if (!geo) return;
+      box.setFromBufferAttribute(geo.attributes.position as THREE.BufferAttribute);
+      box.getSize(size);
+      box.getCenter(center);
+      if (size.y <= 0) return;
+      const scale = p.h / size.y;
+
+      m.compose(
+        new THREE.Vector3(p.x, 0, p.z),
+        new THREE.Quaternion().setFromEuler(new THREE.Euler(0, p.rotY, 0)),
+        new THREE.Vector3(scale, scale, scale),
+      );
+      const piece = geo.clone();
+      piece.translate(-center.x, -box.min.y, -center.z);
+      piece.applyMatrix4(m);
+      pieces.push(piece);
+    });
+
+    const merged = mergeGeometries(pieces, false);
+    if (!merged) return;
+    const mesh = new THREE.Mesh(merged, material);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+    fallback.visible = false;
+  });
 }

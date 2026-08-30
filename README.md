@@ -31,9 +31,15 @@ npm run typecheck
 
 Noyade, oxygène létal, permis de conduire, amendes, économie complexe, arbre de compétences.
 
+## Assets 3D réels (Kenney, CC0)
+
+Certains véhicules et les maisons de la banlieue étendue utilisent maintenant de vrais modèles low-poly texturés (`public/models/`, packs *Car Kit* et *City Kit Suburban* de Kenney.nl, domaine public CC0) au lieu de boîtes procédurales : `src/world/ModelLoader.ts` charge les `.glb` via `GLTFLoader` en arrière-plan (le jeu ne bloque jamais dessus) et bascule dessus une fois prêts, sans jamais casser l'écran si un fichier manque — la géométrie procédurale reste alors affichée indéfiniment (filet de sécurité). Correspondances actuelles (`VehicleMeshFactory.ts`, `REAL_MODEL_URL`) : citadine → sedan, pick-up → suv, tracteur → tractor, camion benne → truck, camion plateau → truck-flat, pelleteuse → tractor-shovel. Les remorques, le rouleau compresseur et la moissonneuse-batteuse n'ont pas d'équivalent dans le pack fourni et restent en géométrie procédurale. Les 10 variantes de `building-type-*.glb` (`ExtendedWorld.ts`) remplacent les boîtes de la banlieue, fusionnées en un seul maillage pour rester léger.
+
+Le pack *Road Tiles* fourni (302 modèles numérotés, sans texture ni légende) n'a pas été intégré : impossible de distinguer route droite/virage/carrefour sans inspection visuelle pièce par pièce, donc la grille de routes reste en plans de couleur unie pour l'instant. Le pack *Isometric Miniature Farm* fourni contient uniquement des sprites 2D isométriques (PNG), pas de modèles 3D — inutilisable tel quel dans cette scène Three.js ; la ferme garde ses formes procédurales.
+
 ## Ce qui reste à faire
 
-Le bundle de design ne contenait que des maquettes HUD/UI (HTML/CSS), pas d'assets 3D : les véhicules, personnages et décors sont des géométries low-poly de substitution (boîtes, cylindres) construites dans `src/world/VehicleMeshFactory.ts` et `src/world/Terrain.ts`, à remplacer par de vrais modèles/textures. Idées de suite, listées dans les guidelines : bateau/jet-ski, ponts vers l'eau, irrigation, photo & partage.
+Idées de suite, listées dans les guidelines : bateau/jet-ski, ponts vers l'eau, irrigation, photo & partage. Reste aussi : de vrais modèles pour remorques/rouleau/moissonneuse, et des tuiles de route identifiées pour remplacer les plans de couleur unie.
 
 ## Architecture
 

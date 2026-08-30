@@ -1,5 +1,21 @@
 import * as THREE from "three";
 import type { VehicleDef } from "./VehicleCatalog";
+import { loadModel } from "./ModelLoader";
+
+/**
+ * Real CC0 Kenney Car Kit models, keyed by VehicleDef.id — supplied by the
+ * player, not every catalog entry has a matching asset. Loaded async and
+ * swapped in over the procedural placeholder; anything left unmapped (or
+ * that fails to load offline) just keeps its low-poly geometry forever.
+ */
+const REAL_MODEL_URL: Partial<Record<string, string>> = {
+  citadine: "/models/cars/sedan.glb",
+  pickup: "/models/cars/suv.glb",
+  "tracteur-ferme": "/models/cars/tractor.glb",
+  "camion-benne": "/models/cars/truck.glb",
+  "camion-plateau": "/models/cars/truck-flat.glb",
+  pelleteuse: "/models/cars/tractor-shovel.glb",
+};
 
 const WHITE = new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.6 });
 const DARK = new THREE.MeshStandardMaterial({ color: 0x161c26, roughness: 0.7 });
@@ -32,6 +48,11 @@ export interface BuiltVehicle {
 
 export function buildVehicleMesh(def: VehicleDef): BuiltVehicle {
   const group = new THREE.Group();
+  // Procedural low-poly geometry lives in its own subgroup so a real
+  // Kenney model can hide it later without touching the light dots
+  // (added straight to `group`, see addLights) that Vehicle.ts depends on.
+  const visual = new THREE.Group();
+  visual.name = "proceduralVisual";
   const bodyMat = new THREE.MeshStandardMaterial({ color: def.color, roughness: 0.55, metalness: 0.1 });
   let length = 4;
   let hasCabin = true;
@@ -43,8 +64,8 @@ export function buildVehicleMesh(def: VehicleDef): BuiltVehicle {
       body.position.y = 0.6;
       const cabin = box(1.6, 0.55, 2, bodyMat.clone());
       cabin.position.set(0, 1.15, -0.2);
-      group.add(body, cabin);
-      addWheels(group, 1.9, length, 0.42);
+      visual.add(body, cabin);
+      addWheels(visual, 1.9, length, 0.42);
       addLights(group, 0.95, 0.55, length / 2);
       break;
     }
@@ -57,7 +78,7 @@ export function buildVehicleMesh(def: VehicleDef): BuiltVehicle {
       cabin.position.set(0, 1.7, 0.6);
       const bucket = box(1.5, 0.5, 0.6, DARK);
       bucket.position.set(0, 0.4, -2.1);
-      group.add(body, cabin, bucket);
+      visual.add(body, cabin, bucket);
       const rear = wheel(0.75, 0.5);
       const front = wheel(0.4, 0.32);
       [-1, 1].forEach((side) => {
@@ -65,7 +86,7 @@ export function buildVehicleMesh(def: VehicleDef): BuiltVehicle {
         r.position.set(side * 0.95, 0.75, 0.9);
         const f = front.clone();
         f.position.set(side * 0.85, 0.4, -1.4);
-        group.add(r, f);
+        visual.add(r, f);
       });
       addLights(group, 0.8, 1, length / 2);
       break;
@@ -76,8 +97,8 @@ export function buildVehicleMesh(def: VehicleDef): BuiltVehicle {
       cab.position.set(0, 0.95, length / 2 - 1);
       const bed = box(2.1, 0.9, length - 2, new THREE.MeshStandardMaterial({ color: 0x6b7686, roughness: 0.8 }));
       bed.position.set(0, 0.75, -1);
-      group.add(cab, bed);
-      addWheels(group, 2.1, length, 0.5, 3);
+      visual.add(cab, bed);
+      addWheels(visual, 2.1, length, 0.5, 3);
       addLights(group, 1.05, 0.7, length / 2);
       break;
     }
@@ -88,8 +109,8 @@ export function buildVehicleMesh(def: VehicleDef): BuiltVehicle {
       bed.position.y = 0.7;
       const hitch = box(0.15, 0.15, 1, DARK);
       hitch.position.set(0, 0.5, length / 2 + 0.5);
-      group.add(bed, hitch);
-      addWheels(group, 2.1, length, 0.45, 2, true);
+      visual.add(bed, hitch);
+      addWheels(visual, 2.1, length, 0.45, 2, true);
       break;
     }
     case "rouleau": {
@@ -104,12 +125,12 @@ export function buildVehicleMesh(def: VehicleDef): BuiltVehicle {
       );
       drum.rotation.z = Math.PI / 2;
       drum.position.set(0, 0.65, 1.6);
-      group.add(body, cabin, drum);
+      visual.add(body, cabin, drum);
       const rear = wheel(0.5, 0.4);
       [-1, 1].forEach((side) => {
         const r = rear.clone();
         r.position.set(side * 0.9, 0.5, -1.6);
-        group.add(r);
+        visual.add(r);
       });
       addLights(group, 0.75, 1, 2.2);
       break;
@@ -122,7 +143,7 @@ export function buildVehicleMesh(def: VehicleDef): BuiltVehicle {
       [-1, 1].forEach((side) => {
         const t = box(0.5, 0.6, 3.2, track);
         t.position.set(side * 1.05, 0.4, 0);
-        group.add(t);
+        visual.add(t);
       });
       const turret = box(1.3, 0.7, 1.6, bodyMat.clone());
       turret.position.set(0, 1.55, 0.2);
@@ -131,7 +152,7 @@ export function buildVehicleMesh(def: VehicleDef): BuiltVehicle {
       boom.rotation.x = -0.4;
       const bucket = box(0.7, 0.5, 0.6, DARK);
       bucket.position.set(0, 1.1, -2.9);
-      group.add(body, turret, boom, bucket);
+      visual.add(body, turret, boom, bucket);
       addLights(group, 1, 0.9, 2.3);
       break;
     }
@@ -151,7 +172,7 @@ export function buildVehicleMesh(def: VehicleDef): BuiltVehicle {
       );
       reel.rotation.z = Math.PI / 2;
       reel.position.set(0, 1.05, 3.6);
-      group.add(body, tank, cabin, header, reel);
+      visual.add(body, tank, cabin, header, reel);
 
       const driveWheel = wheel(0.85, 0.55);
       const rearWheel = wheel(0.4, 0.32);
@@ -160,18 +181,75 @@ export function buildVehicleMesh(def: VehicleDef): BuiltVehicle {
         d.position.set(side * 1.05, 0.85, 0.6);
         const r = rearWheel.clone();
         r.position.set(side * 0.9, 0.4, -2.6);
-        group.add(d, r);
+        visual.add(d, r);
       });
       addLights(group, 1.05, 1.1, length / 2 - 1);
       break;
     }
   }
 
+  group.add(visual);
   group.traverse((obj) => {
     if (obj instanceof THREE.Mesh) obj.castShadow = true;
   });
 
+  attachRealModel(group, visual, def, length);
+
   return { group, length, hasCabin };
+}
+
+/**
+ * Fire-and-forget: swaps the procedural placeholder for a real Kenney
+ * model once it loads. Runs after buildVehicleMesh already returned, so
+ * the game never waits on a network/disk fetch to start driving — and if
+ * loadModel resolves null (no mapping, or the file failed to load), the
+ * procedural visual just stays up forever.
+ */
+function attachRealModel(group: THREE.Group, visual: THREE.Group, def: VehicleDef, targetLength: number) {
+  const url = REAL_MODEL_URL[def.id];
+  if (!url) return;
+  loadModel(url).then((model) => {
+    if (!model) return;
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    if (size.z <= 0) return;
+    const scale = targetLength / size.z;
+    model.scale.setScalar(scale);
+    model.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
+    model.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) obj.castShadow = true;
+    });
+    visual.visible = false;
+    group.add(model);
+
+    // The light dots were placed for the procedural body's dimensions —
+    // move them onto the real model's actual (differently proportioned)
+    // footprint so blinkers/headlights sit on the body, not floating
+    // beside it.
+    repositionLights(group, (size.x * scale) / 2, size.y * scale * 0.4, targetLength / 2, size.y * scale);
+  });
+}
+
+function repositionLights(group: THREE.Group, halfWidth: number, height: number, halfLength: number, roofHeight = height + 0.7) {
+  const at = (name: string, x: number, y: number, z: number) => {
+    const obj = group.getObjectByName(name);
+    if (obj) obj.position.set(x, y, z);
+  };
+  at("blinkerL_front", -halfWidth, height, halfLength - 0.08);
+  at("blinkerR_front", halfWidth, height, halfLength - 0.08);
+  at("blinkerL_rear", -halfWidth, height, -halfLength + 0.08);
+  at("blinkerR_rear", halfWidth, height, -halfLength + 0.08);
+  at("headlightL", -halfWidth * 0.55, height, halfLength);
+  at("headlightR", halfWidth * 0.55, height, halfLength);
+  at("taillightL", -halfWidth * 0.55, height, -halfLength);
+  at("taillightR", halfWidth * 0.55, height, -halfLength);
+  const spot = group.getObjectByName("headlightSpot");
+  if (spot) spot.position.set(0, height, halfLength);
+  const spotTarget = (spot as THREE.SpotLight | undefined)?.target;
+  if (spotTarget) spotTarget.position.set(0, 0, halfLength + 10);
+  const beacon = group.getObjectByName("beacon");
+  if (beacon) beacon.position.set(0, roofHeight + 0.3, 0);
 }
 
 function addWheels(group: THREE.Group, track: number, length: number, radius: number, pairs = 2, trailer = false) {
