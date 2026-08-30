@@ -240,14 +240,14 @@ function repositionLights(group: THREE.Group, halfWidth: number, height: number,
     const obj = group.getObjectByName(name);
     if (obj) obj.position.set(x, y, z);
   };
-  at("blinkerL_front", -halfWidth, height, halfLength - 0.08);
-  at("blinkerR_front", halfWidth, height, halfLength - 0.08);
-  at("blinkerL_rear", -halfWidth, height, -halfLength + 0.08);
-  at("blinkerR_rear", halfWidth, height, -halfLength + 0.08);
-  at("headlightL", -halfWidth * 0.55, height, halfLength);
-  at("headlightR", halfWidth * 0.55, height, halfLength);
-  at("taillightL", -halfWidth * 0.55, height, -halfLength);
-  at("taillightR", halfWidth * 0.55, height, -halfLength);
+  at("blinkerL_front", halfWidth, height, halfLength - 0.08);
+  at("blinkerR_front", -halfWidth, height, halfLength - 0.08);
+  at("blinkerL_rear", halfWidth, height, -halfLength + 0.08);
+  at("blinkerR_rear", -halfWidth, height, -halfLength + 0.08);
+  at("headlightL", halfWidth * 0.55, height, halfLength);
+  at("headlightR", -halfWidth * 0.55, height, halfLength);
+  at("taillightL", halfWidth * 0.55, height, -halfLength);
+  at("taillightR", -halfWidth * 0.55, height, -halfLength);
   const spot = group.getObjectByName("headlightSpot");
   if (spot) spot.position.set(0, height, halfLength);
   const spotTarget = (spot as THREE.SpotLight | undefined)?.target;
@@ -278,32 +278,38 @@ function addWheels(group: THREE.Group, track: number, length: number, radius: nu
  * front-only lights are invisible from the default view. Blinkers and
  * headlights/taillights are duplicated front+rear so the signal reads
  * from whichever side the player is looking from.
+ *
+ * Sign convention: with the chase camera looking down +z (up = +y), the
+ * lookAt basis puts camera-right along world -x — so the player's actual
+ * left (screen-left, "GAUCHE") is world +x, not -x. Named L/R lights use
+ * +halfWidth for L and -halfWidth for R to match what's on screen, not
+ * the more "obvious" (and wrong here) -x-is-left assumption.
  */
 function addLights(group: THREE.Group, halfWidth: number, height: number, halfLength: number) {
   const lf = lightDot("blinkerL_front", 0xffc02e);
-  lf.position.set(-halfWidth, height, halfLength - 0.08);
+  lf.position.set(halfWidth, height, halfLength - 0.08);
   const rf = lightDot("blinkerR_front", 0xffc02e);
-  rf.position.set(halfWidth, height, halfLength - 0.08);
+  rf.position.set(-halfWidth, height, halfLength - 0.08);
   const lr = lightDot("blinkerL_rear", 0xffc02e);
-  lr.position.set(-halfWidth, height, -halfLength + 0.08);
+  lr.position.set(halfWidth, height, -halfLength + 0.08);
   const rr = lightDot("blinkerR_rear", 0xffc02e);
-  rr.position.set(halfWidth, height, -halfLength + 0.08);
+  rr.position.set(-halfWidth, height, -halfLength + 0.08);
   group.add(lf, rf, lr, rr);
 
   const headL = lightDot("headlightL", 0xf4f1ea);
   headL.scale.setScalar(1.6);
-  headL.position.set(-halfWidth * 0.55, height, halfLength);
+  headL.position.set(halfWidth * 0.55, height, halfLength);
   const headR = lightDot("headlightR", 0xf4f1ea);
   headR.scale.setScalar(1.6);
-  headR.position.set(halfWidth * 0.55, height, halfLength);
+  headR.position.set(-halfWidth * 0.55, height, halfLength);
   group.add(headL, headR);
 
   const tailL = lightDot("taillightL", 0xff3b3b);
   tailL.scale.setScalar(1.3);
-  tailL.position.set(-halfWidth * 0.55, height, -halfLength);
+  tailL.position.set(halfWidth * 0.55, height, -halfLength);
   const tailR = lightDot("taillightR", 0xff3b3b);
   tailR.scale.setScalar(1.3);
-  tailR.position.set(halfWidth * 0.55, height, -halfLength);
+  tailR.position.set(-halfWidth * 0.55, height, -halfLength);
   group.add(tailL, tailR);
 
   // Real light cast forward so "phares" read even when the headlamp dot
