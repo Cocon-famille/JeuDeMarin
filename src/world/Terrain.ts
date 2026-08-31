@@ -1,6 +1,13 @@
 import * as THREE from "three";
 import type { Terrain as TerrainZone } from "../core/GameState";
 import { registerObstacle } from "./Collision";
+import { attachRealModelReplacing } from "./ModelLoader";
+
+const CRATE_MODEL_URL = "/models/cars/box.glb";
+// Mêmes variantes que la banlieue étendue (ExtendedWorld.ts) — dupliqué
+// plutôt qu'importé pour éviter un cycle (ExtendedWorld dépend déjà de
+// Terrain pour CORE_BOUNDS/WORLD_HALF).
+const BUILDING_MODEL_URLS = "abcdefghij".split("").map((letter) => `/models/buildings/building-type-${letter}.glb`);
 
 // Trois terrains côte à côte le long de X. Une couleur par terrain — elle
 // colore le décor et le titre de zone, jamais un bouton (règle palette §03).
@@ -136,11 +143,17 @@ function makeHayBale(): THREE.Object3D {
 }
 
 function makeCrate(): THREE.Object3D {
-  const geo = new THREE.BoxGeometry(2.2, 2.2, 2.2);
+  const height = 2.2;
+  const geo = new THREE.BoxGeometry(height, height, height);
   const mat = new THREE.MeshStandardMaterial({ color: 0xb8631f, roughness: 0.9 });
   const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.y = 1.1;
-  return mesh;
+  mesh.position.y = height / 2;
+  mesh.castShadow = true;
+
+  const group = new THREE.Group();
+  group.add(mesh);
+  attachRealModelReplacing(group, mesh, CRATE_MODEL_URL, height);
+  return group;
 }
 
 function makeBuilding(): THREE.Object3D {
@@ -149,5 +162,11 @@ function makeBuilding(): THREE.Object3D {
   const mat = new THREE.MeshStandardMaterial({ color: 0x2a3345, roughness: 0.8 });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.y = h / 2;
-  return mesh;
+  mesh.castShadow = true;
+
+  const group = new THREE.Group();
+  group.add(mesh);
+  const url = BUILDING_MODEL_URLS[Math.floor(Math.random() * BUILDING_MODEL_URLS.length)];
+  attachRealModelReplacing(group, mesh, url, h);
+  return group;
 }

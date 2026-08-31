@@ -32,10 +32,18 @@ function box(w: number, h: number, d: number, mat: THREE.Material): THREE.Mesh {
   return mesh;
 }
 
-/** A named, emissive-capable light dot used for blinkers/headlights/beacon. */
+/** A named, emissive-capable round light — used for the roof beacon, the one light that's actually dome-shaped. */
 function lightDot(name: string, color: number): THREE.Mesh {
   const mat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0 });
   const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), mat);
+  mesh.name = name;
+  return mesh;
+}
+
+/** A named, emissive-capable flat lens — used for blinkers/headlights/taillights, which sit flush on the body. */
+function lightLens(name: string, color: number, width = 0.2, height = 0.12): THREE.Mesh {
+  const mat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0 });
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, 0.05), mat);
   mesh.name = name;
   return mesh;
 }
@@ -286,29 +294,25 @@ function addWheels(group: THREE.Group, track: number, length: number, radius: nu
  * the more "obvious" (and wrong here) -x-is-left assumption.
  */
 function addLights(group: THREE.Group, halfWidth: number, height: number, halfLength: number) {
-  const lf = lightDot("blinkerL_front", 0xffc02e);
+  const lf = lightLens("blinkerL_front", 0xffc02e);
   lf.position.set(halfWidth, height, halfLength - 0.08);
-  const rf = lightDot("blinkerR_front", 0xffc02e);
+  const rf = lightLens("blinkerR_front", 0xffc02e);
   rf.position.set(-halfWidth, height, halfLength - 0.08);
-  const lr = lightDot("blinkerL_rear", 0xffc02e);
+  const lr = lightLens("blinkerL_rear", 0xffc02e);
   lr.position.set(halfWidth, height, -halfLength + 0.08);
-  const rr = lightDot("blinkerR_rear", 0xffc02e);
+  const rr = lightLens("blinkerR_rear", 0xffc02e);
   rr.position.set(-halfWidth, height, -halfLength + 0.08);
   group.add(lf, rf, lr, rr);
 
-  const headL = lightDot("headlightL", 0xf4f1ea);
-  headL.scale.setScalar(1.6);
+  const headL = lightLens("headlightL", 0xf4f1ea, 0.26, 0.18);
   headL.position.set(halfWidth * 0.55, height, halfLength);
-  const headR = lightDot("headlightR", 0xf4f1ea);
-  headR.scale.setScalar(1.6);
+  const headR = lightLens("headlightR", 0xf4f1ea, 0.26, 0.18);
   headR.position.set(-halfWidth * 0.55, height, halfLength);
   group.add(headL, headR);
 
-  const tailL = lightDot("taillightL", 0xff3b3b);
-  tailL.scale.setScalar(1.3);
+  const tailL = lightLens("taillightL", 0xff3b3b, 0.22, 0.15);
   tailL.position.set(halfWidth * 0.55, height, -halfLength);
-  const tailR = lightDot("taillightR", 0xff3b3b);
-  tailR.scale.setScalar(1.3);
+  const tailR = lightLens("taillightR", 0xff3b3b, 0.22, 0.15);
   tailR.position.set(-halfWidth * 0.55, height, -halfLength);
   group.add(tailL, tailR);
 
