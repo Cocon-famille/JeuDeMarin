@@ -13,10 +13,12 @@ export class Trailer {
   readonly object = new THREE.Group();
   heading = 0;
   length = 4;
+  collisionRadius = 1.2;
 
   constructor(def: VehicleDef, scene: THREE.Scene) {
     const built = buildVehicleMesh(def);
     this.length = built.length;
+    this.collisionRadius = Math.max(1, built.length * 0.24);
     this.object.add(built.group);
     scene.add(this.object);
   }

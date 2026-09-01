@@ -14,6 +14,7 @@ import { Vehicle } from "./Vehicle";
 import { Walker } from "./Walker";
 import { Trailer } from "./Trailer";
 import { Farm } from "./Farm";
+import { resolveAgainst } from "./Collision";
 import { VEHICLE_CATALOG, VehicleDef } from "./VehicleCatalog";
 import { copy } from "../content/copy";
 
@@ -155,6 +156,15 @@ export class World {
       this.nearShop = false;
     } else {
       this.walker.update(dt, this.input, this.state);
+      // The parked vehicle (and trailer) can't be a static Collision
+      // obstacle — it moves — so it never blocked the pedestrian from
+      // just walking into it. Resolved here, not inside Walker, since
+      // it needs to stay well under ENTER_EXIT_RADIUS or the "remonter"
+      // prompt would never trigger.
+      resolveAgainst(this.walker.object.position, 0.4, this.vehicle.object.position.x, this.vehicle.object.position.z, this.vehicle.collisionRadius);
+      if (this.trailer) {
+        resolveAgainst(this.walker.object.position, 0.4, this.trailer.object.position.x, this.trailer.object.position.z, this.trailer.collisionRadius);
+      }
       const wp = this.walker.object.position;
       const vp = this.vehicle.object.position;
       this.nearVehicle = wp.distanceTo(vp) < ENTER_EXIT_RADIUS && this.state.mode === "pedestrian";

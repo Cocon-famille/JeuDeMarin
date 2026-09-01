@@ -27,7 +27,7 @@ export class Vehicle {
   wrapDeltaX = 0;
   wrapDeltaZ = 0;
   length = 4;
-  private collisionRadius = 1.2;
+  collisionRadius = 1.2;
 
   constructor(def: VehicleDef, scene: THREE.Scene, state: GameState) {
     this.def = def;
