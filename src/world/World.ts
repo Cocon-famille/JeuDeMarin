@@ -12,6 +12,7 @@ import { wrapWorld } from "./Terrain";
 import { buildExtendedWorld } from "./ExtendedWorld";
 import { Vehicle } from "./Vehicle";
 import { Walker } from "./Walker";
+import { Trailer } from "./Trailer";
 import { Farm } from "./Farm";
 import { VEHICLE_CATALOG, VehicleDef } from "./VehicleCatalog";
 import { copy } from "../content/copy";
@@ -32,6 +33,8 @@ export class World {
 
   nearVehicle = false;
   nearShop = false;
+  trailer: Trailer | null = null;
+  trailerDef: VehicleDef | null = null;
   onWheelDetected?: () => void;
   onWheelCalibrated?: () => void;
   onWheelStep?: (step: 0 | 1 | 2, progress: number) => void;
@@ -79,6 +82,10 @@ export class World {
   }
 
   swapVehicle(def: VehicleDef) {
+    // Une remorque n'a pas de moteur — la traîner attelée derrière un
+    // véhicule qui ne peut plus la tracter n'a pas de sens.
+    if (this.trailer && !def.canTow) this.detachTrailer();
+
     if (this.state.mode === "drive") {
       const { x, z } = this.vehicle.object.position;
       this.vehicle.swapTo(def, this.rig.scene);
@@ -86,6 +93,30 @@ export class World {
     } else {
       this.vehicle.swapTo(def, this.rig.scene);
     }
+  }
+
+  /** Attèle (ou détache si déjà attelée) une remorque possédée derrière le véhicule tracteur actuel. */
+  attachTrailer(def: VehicleDef) {
+    if (this.trailerDef?.id === def.id) {
+      this.detachTrailer();
+      return;
+    }
+    if (this.trailer) this.trailer.dispose(this.rig.scene);
+    this.trailer = new Trailer(def, this.rig.scene);
+    this.trailerDef = def;
+    const hitchLength = this.vehicle.length / 2 + this.trailer.length / 2 + 0.4;
+    const forward = new THREE.Vector3(Math.sin(this.vehicle.heading), 0, Math.cos(this.vehicle.heading));
+    const behind = this.vehicle.object.position.clone().addScaledVector(forward, -hitchLength);
+    this.trailer.placeAt(behind.x, behind.z, this.vehicle.heading);
+    this.state.toast(`${def.label} attelée`, "Elle suit le véhicule — reviens la choisir dans la boutique pour la détacher.");
+  }
+
+  detachTrailer() {
+    if (!this.trailer) return;
+    this.trailer.dispose(this.rig.scene);
+    this.trailer = null;
+    this.trailerDef = null;
+    this.state.toast("Remorque détachée");
   }
 
   update(dt: number) {
@@ -98,6 +129,19 @@ export class World {
       this.drive.update(this.input, this.state);
       this.gearbox.update(this.input);
       this.farm.update(dt, this.vehicle.object.position, this.vehicle.def.kind, this.input, this.state);
+
+      if (this.trailer) {
+        // The tow vehicle can jump ~1800 units in one frame when it wraps
+        // around the world edge (Terrain.wrapWorld) — shift the trailer by
+        // the same delta first, or it'd see a huge gap open up and rush
+        // to close it instead of wrapping invisibly like everything else.
+        if (this.vehicle.wrapDeltaX !== 0 || this.vehicle.wrapDeltaZ !== 0) {
+          this.trailer.object.position.x += this.vehicle.wrapDeltaX;
+          this.trailer.object.position.z += this.vehicle.wrapDeltaZ;
+        }
+        const hitchLength = this.vehicle.length / 2 + this.trailer.length / 2 + 0.4;
+        this.trailer.update(this.vehicle.object.position.x, this.vehicle.object.position.z, hitchLength);
+      }
 
       if (this.input.justPressed("KeyV")) this.toggleView();
       if (this.input.justPressed("KeyF")) {

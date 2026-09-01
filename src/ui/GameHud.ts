@@ -36,7 +36,15 @@ export class GameHud {
     this.toast = new ToastStack(hudRoot, world.state);
     this.wheelBanner = new WheelBannerUI(hudRoot, world.wheel);
     this.shop = new ShopUI(hudRoot, world.state, (def) => {
-      world.swapVehicle(def);
+      if (def.kind === "remorque") {
+        if (world.state.mode === "drive" && world.vehicle.def.canTow) {
+          world.attachTrailer(def);
+        } else {
+          world.state.toast("Pas de prise en vue", "Monte dans un tracteur ou un camion pour l'atteler.");
+        }
+      } else {
+        world.swapVehicle(def);
+      }
       this.shop.close();
     });
     this.bank = new BankPanel(hudRoot, world.state);
@@ -67,7 +75,7 @@ export class GameHud {
       return;
     }
     this.world.state.refuel();
-    this.shop.open(this.world.vehicle.def.id);
+    this.shop.open(this.world.vehicle.def.id, this.world.trailerDef?.id ?? null);
   }
 
   private toggleMinimap() {
@@ -83,7 +91,7 @@ export class GameHud {
     this.swimHud.setVisible(mode === "swim" && !modalOpen);
 
     if (mode === "drive") {
-      this.driveHud.updateVehicleLabel(this.world.vehicle.def);
+      this.driveHud.updateVehicleLabel(this.world.vehicle.def, this.world.trailerDef?.label ?? null);
       this.driveHud.update();
       this.driveHud.setFarmPrompt(this.world.farm.prompt(this.world.vehicle.def.kind));
     } else if (mode === "pedestrian") {

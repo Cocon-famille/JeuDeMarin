@@ -88,9 +88,10 @@ export class DriveHud {
     return btn;
   }
 
-  updateVehicleLabel(def: VehicleDef) {
+  updateVehicleLabel(def: VehicleDef, trailerLabel: string | null = null) {
     this.vehicleBadge.innerHTML = "";
-    this.vehicleBadge.append(el("span", { className: "tt-mode-dot" }), el("span", { text: def.label }));
+    const label = trailerLabel ? `${def.label} + ${trailerLabel}` : def.label;
+    this.vehicleBadge.append(el("span", { className: "tt-mode-dot" }), el("span", { text: label }));
   }
 
   update() {
