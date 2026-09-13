@@ -167,6 +167,9 @@ function makeBuilding(): THREE.Object3D {
   const group = new THREE.Group();
   group.add(mesh);
   const url = BUILDING_MODEL_URLS[Math.floor(Math.random() * BUILDING_MODEL_URLS.length)];
-  attachRealModelReplacing(group, mesh, url, h);
+  // Footprint fixed at 6 (matching the box placeholder and the registered
+  // collision radius below) — only height varies, so a tall building can't
+  // end up visually far wider than the small area actually made solid.
+  attachRealModelReplacing(group, mesh, url, h, 6);
   return group;
 }

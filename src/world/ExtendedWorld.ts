@@ -178,13 +178,22 @@ function attachRealBuildings(group: THREE.Group, fallback: THREE.Group, placemen
       box.setFromBufferAttribute(geo.attributes.position as THREE.BufferAttribute);
       box.getSize(size);
       box.getCenter(center);
-      if (size.y <= 0) return;
-      const scale = p.h / size.y;
+      if (size.y <= 0 || size.x <= 0 || size.z <= 0) return;
+      // Scaling uniformly by height alone left the footprint tied to
+      // whatever aspect ratio the model happened to have — a tall
+      // building would end up far wider than intended, wider than the
+      // small collision circle already registered for it in addHouses
+      // (which sized itself off p.w/p.d, not the model). Scaling each
+      // axis independently to match p.w/p.h/p.d keeps the real model's
+      // footprint exactly the one that was actually made solid.
+      const scaleX = p.w / size.x;
+      const scaleY = p.h / size.y;
+      const scaleZ = p.d / size.z;
 
       m.compose(
         new THREE.Vector3(p.x, 0, p.z),
         new THREE.Quaternion().setFromEuler(new THREE.Euler(0, p.rotY, 0)),
-        new THREE.Vector3(scale, scale, scale),
+        new THREE.Vector3(scaleX, scaleY, scaleZ),
       );
       const piece = geo.clone();
       piece.translate(-center.x, -box.min.y, -center.z);
