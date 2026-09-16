@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-interface Obstacle {
+export interface Obstacle {
   x: number;
   z: number;
   radius: number;
@@ -8,9 +8,16 @@ interface Obstacle {
 
 const obstacles: Obstacle[] = [];
 
-/** Registers a circular footprint (house, crate, building…) that blocks movement. */
-export function registerObstacle(x: number, z: number, radius: number) {
-  obstacles.push({ x, z, radius });
+/**
+ * Registers a circular footprint (house, crate, building…) that blocks
+ * movement, and returns the live entry — callers that need to move their
+ * obstacle later (e.g. a crate carried by the excavator) can mutate the
+ * returned object's x/z directly instead of re-registering.
+ */
+export function registerObstacle(x: number, z: number, radius: number): Obstacle {
+  const obstacle: Obstacle = { x, z, radius };
+  obstacles.push(obstacle);
+  return obstacle;
 }
 
 /**

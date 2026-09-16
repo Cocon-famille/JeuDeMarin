@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { Terrain as TerrainZone } from "../core/GameState";
-import { registerObstacle } from "./Collision";
+import { Obstacle, registerObstacle } from "./Collision";
 import { attachRealModelReplacing } from "./ModelLoader";
 
 const CRATE_MODEL_URL = "/models/cars/box.glb";
@@ -83,7 +83,8 @@ export function buildTerrain(scene: THREE.Scene) {
 
   // Quelques accessoires low-poly par terrain, pour lire l'espace sans assets d'art.
   addProps(group, ZONE_BOUNDS.ferme, () => makeHayBale(), 1.3);
-  addProps(group, ZONE_BOUNDS.chantier, () => makeCrate(), 1.4);
+  CHANTIER_CRATES.length = 0;
+  CHANTIER_CRATES.push(...addProps(group, ZONE_BOUNDS.chantier, () => makeCrate(), 1.4));
   addProps(group, ZONE_BOUNDS.ville, () => makeBuilding(), 3.2);
 
   // Fosse du lac (légèrement encaissée) sous la zone d'eau. Le dessus de
@@ -111,7 +112,19 @@ export function buildTerrain(scene: THREE.Scene) {
 // doivent jamais y atterrir, sous peine de coincer le joueur dès l'arrivée.
 const SPAWN_CLEAR_RADIUS = 16;
 
-function addProps(group: THREE.Group, zone: { minX: number; maxX: number }, make: () => THREE.Object3D, obstacleRadius: number) {
+/** A prop that's still around after placement — e.g. so a crate can be picked up and carried. */
+export interface PlacedProp {
+  object: THREE.Object3D;
+  obstacle: Obstacle;
+}
+
+function addProps(
+  group: THREE.Group,
+  zone: { minX: number; maxX: number },
+  make: () => THREE.Object3D,
+  obstacleRadius: number,
+): PlacedProp[] {
+  const placed: PlacedProp[] = [];
   const spawnX = (zone.minX + zone.maxX) / 2;
   for (let i = 0; i < 6; i++) {
     let x = 0;
@@ -129,9 +142,14 @@ function addProps(group: THREE.Group, zone: { minX: number; maxX: number }, make
     prop.rotation.y = Math.random() * Math.PI * 2;
     prop.castShadow = true;
     group.add(prop);
-    registerObstacle(x, z, obstacleRadius);
+    const obstacle = registerObstacle(x, z, obstacleRadius);
+    placed.push({ object: prop, obstacle });
   }
+  return placed;
 }
+
+/** Chantier crates the pelleteuse can pick up and carry — filled by buildTerrain. */
+export const CHANTIER_CRATES: PlacedProp[] = [];
 
 function makeHayBale(): THREE.Object3D {
   const geo = new THREE.CylinderGeometry(1.4, 1.4, 2, 12);

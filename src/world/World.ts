@@ -15,10 +15,13 @@ import { Walker } from "./Walker";
 import { Trailer } from "./Trailer";
 import { Farm } from "./Farm";
 import { resolveAgainst } from "./Collision";
+import { CHANTIER_CRATES, PlacedProp } from "./Terrain";
 import { VEHICLE_CATALOG, VehicleDef } from "./VehicleCatalog";
 import { copy } from "../content/copy";
 
 const ENTER_EXIT_RADIUS = 3.5;
+const GRAB_RADIUS = 4.5;
+const CARRY_HEIGHT = 1.6;
 
 export class World {
   readonly rig: SceneRig;
@@ -36,6 +39,8 @@ export class World {
   nearShop = false;
   trailer: Trailer | null = null;
   trailerDef: VehicleDef | null = null;
+  private carrying: PlacedProp | null = null;
+  private nearGrabbable: PlacedProp | null = null;
   onWheelDetected?: () => void;
   onWheelCalibrated?: () => void;
   onWheelStep?: (step: 0 | 1 | 2, progress: number) => void;
@@ -86,6 +91,7 @@ export class World {
     // Une remorque n'a pas de moteur — la traîner attelée derrière un
     // véhicule qui ne peut plus la tracter n'a pas de sens.
     if (this.trailer && !def.canTow) this.detachTrailer();
+    if (this.carrying && def.kind !== "pelleteuse") this.dropCarried();
 
     if (this.state.mode === "drive") {
       const { x, z } = this.vehicle.object.position;
@@ -120,6 +126,60 @@ export class World {
     this.state.toast("Remorque détachée");
   }
 
+  /**
+   * Pelleteuse-only: while carrying, the crate is rigidly welded to a
+   * point in front of the bucket (no physics — it's "held", not dragged
+   * like the trailer) and its collision obstacle moves with it, so it
+   * still blocks things at wherever it currently is. Otherwise, look for
+   * the nearest grabbable crate within reach.
+   */
+  private updatePelleteuse() {
+    const forward = new THREE.Vector3(Math.sin(this.vehicle.heading), 0, Math.cos(this.vehicle.heading));
+    if (this.carrying) {
+      const carryPos = this.vehicle.object.position.clone().addScaledVector(forward, this.vehicle.length / 2 + 1.2);
+      this.carrying.object.position.set(carryPos.x, CARRY_HEIGHT, carryPos.z);
+      this.carrying.object.rotation.y = this.vehicle.heading;
+      this.carrying.obstacle.x = carryPos.x;
+      this.carrying.obstacle.z = carryPos.z;
+      this.nearGrabbable = null;
+      if (this.input.justPressed("KeyE")) this.dropCarried();
+      return;
+    }
+
+    const pos = this.vehicle.object.position;
+    let nearest: PlacedProp | null = null;
+    let nearestDist = GRAB_RADIUS;
+    for (const crate of CHANTIER_CRATES) {
+      const d = Math.hypot(crate.object.position.x - pos.x, crate.object.position.z - pos.z);
+      if (d < nearestDist) {
+        nearest = crate;
+        nearestDist = d;
+      }
+    }
+    this.nearGrabbable = nearest;
+    if (nearest && this.input.justPressed("KeyE")) {
+      this.carrying = nearest;
+      this.state.toast("Chargement attrapé", "Repose-le avec E.");
+    }
+  }
+
+  private dropCarried() {
+    if (!this.carrying) return;
+    this.carrying.object.position.y = 0;
+    this.carrying.obstacle.x = this.carrying.object.position.x;
+    this.carrying.obstacle.z = this.carrying.object.position.z;
+    this.state.toast("Chargement posé");
+    this.carrying = null;
+  }
+
+  /** Texte + touche pour le CTA du HUD pendant qu'on conduit la pelleteuse. */
+  grabPrompt(): { text: string; key?: string } | null {
+    if (this.vehicle.def.kind !== "pelleteuse") return null;
+    if (this.carrying) return { text: "Poser le chargement", key: "E" };
+    if (this.nearGrabbable) return { text: "Attraper", key: "E" };
+    return null;
+  }
+
   update(dt: number) {
     this.wheel.update();
     this.water.animate();
@@ -142,10 +202,30 @@ export class World {
         }
         const hitchLength = this.vehicle.length / 2 + this.trailer.length / 2 + 0.4;
         this.trailer.update(this.vehicle.object.position.x, this.vehicle.object.position.z, hitchLength);
+
+        // The leash constraint above only pulls the trailer back toward the
+        // vehicle when it's too far — it never stops the vehicle itself from
+        // backing up into the trailer it's towing, so that needs its own
+        // collision check here, same damping idiom as Vehicle's own collision.
+        if (
+          resolveAgainst(
+            this.vehicle.object.position,
+            this.vehicle.collisionRadius,
+            this.trailer.object.position.x,
+            this.trailer.object.position.z,
+            this.trailer.collisionRadius,
+          )
+        ) {
+          this.vehicle.speed *= 0.3;
+        }
       }
+
+      if (this.vehicle.def.kind === "pelleteuse") this.updatePelleteuse();
+      else if (this.carrying) this.dropCarried();
 
       if (this.input.justPressed("KeyV")) this.toggleView();
       if (this.input.justPressed("KeyF")) {
+        if (this.carrying) this.dropCarried();
         this.state.setMode("pedestrian");
         const side = new THREE.Vector3(Math.cos(this.vehicle.heading), 0, -Math.sin(this.vehicle.heading));
         const p = this.vehicle.object.position.clone().addScaledVector(side, 2.4);
