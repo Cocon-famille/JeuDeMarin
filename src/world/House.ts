@@ -9,10 +9,16 @@ const HOUSE_FOOTPRINT = 6;
 const HOUSE_COLLISION_RADIUS = 3.2;
 
 export const HOUSE_POSITION = new THREE.Vector3(PARKING_SPOT.x + 15, 0, PARKING_SPOT.z + 10);
-// Bien au-delà du rayon de collision (3.2) pour pouvoir s'approcher de la
-// porte sans jamais buter sur le mur solide qui l'entoure.
+// Point purement indicatif pour l'icône "regarde ici" — la vraie détection
+// d'entrée est un cercle autour de TOUTE la maison (voir HOUSE_ENTER_RADIUS),
+// pas seulement de ce côté-là : un joueur qui marche en ligne droite depuis
+// le spawn arrive en diagonale et se fait arrêter par la collision bien
+// avant d'atteindre un point calé sur un seul côté (bug rapporté : "je peux
+// pas rentrer" alors qu'il était juste devant la porte visible).
 export const HOUSE_DOOR_POSITION = HOUSE_POSITION.clone().add(new THREE.Vector3(-6, 0, 0));
-export const HOUSE_DOOR_RADIUS = 3;
+// Un peu plus large que le rayon de collision (3.2) : où que la collision
+// arrête le joueur autour du bâtiment, il reste dans ce cercle.
+export const HOUSE_ENTER_RADIUS = HOUSE_COLLISION_RADIUS + 1.5;
 
 // L'intérieur vit dans sa propre poche de la scène, loin de tout (le monde
 // extérieur boucle à ±900 — WORLD_HALF) pour ne jamais chevaucher un autre

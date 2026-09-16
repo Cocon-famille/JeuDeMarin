@@ -19,7 +19,8 @@ import { CHANTIER_CRATES, PlacedProp } from "./Terrain";
 import {
   buildHouse,
   HOUSE_DOOR_POSITION,
-  HOUSE_DOOR_RADIUS,
+  HOUSE_ENTER_RADIUS,
+  HOUSE_POSITION,
   INTERIOR_BED_ZONE,
   INTERIOR_BOUNDS,
   INTERIOR_EXIT_ZONE,
@@ -299,7 +300,7 @@ export class World {
         this.nearShop = this.state.mode === "pedestrian" && isNearShop(wp.x, wp.z);
         this.nearHouseDoor =
           this.state.mode === "pedestrian" &&
-          Math.hypot(wp.x - HOUSE_DOOR_POSITION.x, wp.z - HOUSE_DOOR_POSITION.z) < HOUSE_DOOR_RADIUS;
+          Math.hypot(wp.x - HOUSE_POSITION.x, wp.z - HOUSE_POSITION.z) < HOUSE_ENTER_RADIUS;
         this.nearBed = false;
         this.nearHouseExit = false;
 
