@@ -11,9 +11,11 @@ import { WorldIcon } from "./WorldIcon";
 import { BankPanel } from "./BankPanel";
 import { TasksPanel } from "./TasksPanel";
 import { SHOP_POSITION } from "../world/Shop";
+import { HOUSE_DOOR_POSITION } from "../world/House";
 import { copy } from "../content/copy";
 
 const SHOP_ICON_POINT = SHOP_POSITION.clone().add(new THREE.Vector3(0, 3, 0));
+const HOUSE_ICON_POINT = HOUSE_DOOR_POSITION.clone().add(new THREE.Vector3(0, 3, 0));
 
 export class GameHud {
   private driveHud: DriveHud;
@@ -118,7 +120,9 @@ export class GameHud {
         ? this.world.vehicle.object.position.clone().add(new THREE.Vector3(0, 2.2, 0))
         : mode === "pedestrian" && this.world.nearShop
           ? SHOP_ICON_POINT
-          : null;
+          : mode === "pedestrian" && this.world.nearHouseDoor
+            ? HOUSE_ICON_POINT
+            : null;
     this.worldIcon.update(this.world.rig.camera, iconTarget);
 
     if (this.world.nearShop && this.world.input.justPressed("KeyE") && mode === "pedestrian" && !this.world.nearVehicle) {

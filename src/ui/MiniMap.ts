@@ -1,5 +1,6 @@
 import { ZONE_BOUNDS, WATER_BOUNDS } from "../world/Terrain";
 import { SHOP_POSITION } from "../world/Shop";
+import { HOUSE_POSITION } from "../world/House";
 import { World } from "../world/World";
 import { el } from "./dom";
 
@@ -47,6 +48,7 @@ export class MiniMap {
     ctx.fillRect(wx0, wz0, wx1 - wx0, wz1 - wz0);
 
     this.diamond(project(SHOP_POSITION.x, SHOP_POSITION.z), "#ffc02e");
+    this.diamond(project(HOUSE_POSITION.x, HOUSE_POSITION.z), "#e0623f");
 
     const target = world.state.mode === "drive" ? world.vehicle.object : world.walker.object;
     const heading = world.state.mode === "drive" ? world.vehicle.heading : world.walker.heading;
