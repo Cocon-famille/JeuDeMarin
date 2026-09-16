@@ -16,6 +16,15 @@ import { Trailer } from "./Trailer";
 import { Farm } from "./Farm";
 import { resolveAgainst } from "./Collision";
 import { CHANTIER_CRATES, PlacedProp } from "./Terrain";
+import {
+  buildHouse,
+  HOUSE_DOOR_POSITION,
+  HOUSE_DOOR_RADIUS,
+  INTERIOR_BED_ZONE,
+  INTERIOR_BOUNDS,
+  INTERIOR_EXIT_ZONE,
+  INTERIOR_SPAWN,
+} from "./House";
 import { VEHICLE_CATALOG, VehicleDef } from "./VehicleCatalog";
 import { copy } from "../content/copy";
 
@@ -37,6 +46,10 @@ export class World {
 
   nearVehicle = false;
   nearShop = false;
+  nearHouseDoor = false;
+  nearBed = false;
+  nearHouseExit = false;
+  indoors = false;
   trailer: Trailer | null = null;
   trailerDef: VehicleDef | null = null;
   private carrying: PlacedProp | null = null;
@@ -54,6 +67,7 @@ export class World {
   private orbitPitch = 0;
   private orbitDragging = false;
   private lastPointer = { x: 0, y: 0 };
+  private snapCameraNextFrame = false;
 
   constructor(canvas: HTMLCanvasElement, state: GameState) {
     this.state = state;
@@ -63,6 +77,7 @@ export class World {
     this.water = buildWater(this.rig.scene);
     buildShop(this.rig.scene);
     buildExtendedWorld(this.rig.scene);
+    buildHouse(this.rig.scene);
     this.farm = new Farm(this.rig.scene);
     this.setupOrbitDrag(canvas);
 
@@ -180,6 +195,26 @@ export class World {
     return null;
   }
 
+  private enterHouse() {
+    this.indoors = true;
+    this.walker.indoors = true;
+    this.walker.respawnAt(INTERIOR_SPAWN.x, INTERIOR_SPAWN.z, Math.PI);
+    this.snapCameraNextFrame = true;
+    this.state.toast("Bienvenue chez toi", "Le lit est au fond à gauche.");
+  }
+
+  private exitHouse() {
+    this.indoors = false;
+    this.walker.indoors = false;
+    this.walker.respawnAt(HOUSE_DOOR_POSITION.x, HOUSE_DOOR_POSITION.z, 0);
+    this.snapCameraNextFrame = true;
+  }
+
+  private sleep() {
+    this.state.clockMinutes = 8 * 60;
+    this.state.toast("Bonne nuit !", "Tu te réveilles à 8h00.");
+  }
+
   update(dt: number) {
     this.wheel.update();
     this.water.animate();
@@ -246,17 +281,38 @@ export class World {
         resolveAgainst(this.walker.object.position, 0.4, this.trailer.object.position.x, this.trailer.object.position.z, this.trailer.collisionRadius);
       }
       const wp = this.walker.object.position;
-      const vp = this.vehicle.object.position;
-      this.nearVehicle = wp.distanceTo(vp) < ENTER_EXIT_RADIUS && this.state.mode === "pedestrian";
-      this.nearShop = this.state.mode === "pedestrian" && isNearShop(wp.x, wp.z);
 
-      if (this.nearVehicle && this.input.justPressed("KeyE")) {
-        this.vehicle.respawnAt(wp.x, wp.z, this.walker.heading);
-        this.walker.object.visible = false;
-        this.state.setMode("drive");
-      }
-      if (this.nearShop) {
-        this.state.toast(copy.terrain.somethingShines);
+      if (this.indoors) {
+        wp.x = THREE.MathUtils.clamp(wp.x, INTERIOR_BOUNDS.minX, INTERIOR_BOUNDS.maxX);
+        wp.z = THREE.MathUtils.clamp(wp.z, INTERIOR_BOUNDS.minZ, INTERIOR_BOUNDS.maxZ);
+        this.nearVehicle = false;
+        this.nearShop = false;
+        this.nearHouseDoor = false;
+        this.nearBed = Math.hypot(wp.x - INTERIOR_BED_ZONE.x, wp.z - INTERIOR_BED_ZONE.z) < INTERIOR_BED_ZONE.radius;
+        this.nearHouseExit =
+          Math.hypot(wp.x - INTERIOR_EXIT_ZONE.x, wp.z - INTERIOR_EXIT_ZONE.z) < INTERIOR_EXIT_ZONE.radius;
+        if (this.nearBed && this.input.justPressed("KeyE")) this.sleep();
+        else if (this.nearHouseExit && this.input.justPressed("KeyE")) this.exitHouse();
+      } else {
+        const vp = this.vehicle.object.position;
+        this.nearVehicle = wp.distanceTo(vp) < ENTER_EXIT_RADIUS && this.state.mode === "pedestrian";
+        this.nearShop = this.state.mode === "pedestrian" && isNearShop(wp.x, wp.z);
+        this.nearHouseDoor =
+          this.state.mode === "pedestrian" &&
+          Math.hypot(wp.x - HOUSE_DOOR_POSITION.x, wp.z - HOUSE_DOOR_POSITION.z) < HOUSE_DOOR_RADIUS;
+        this.nearBed = false;
+        this.nearHouseExit = false;
+
+        if (this.nearVehicle && this.input.justPressed("KeyE")) {
+          this.vehicle.respawnAt(wp.x, wp.z, this.walker.heading);
+          this.walker.object.visible = false;
+          this.state.setMode("drive");
+        } else if (this.nearHouseDoor && this.input.justPressed("KeyE")) {
+          this.enterHouse();
+        }
+        if (this.nearShop) {
+          this.state.toast(copy.terrain.somethingShines);
+        }
       }
       if (this.state.mode === "swim" && this.input.justPressed("KeyF")) {
         const dir = new THREE.Vector3(Math.sin(this.walker.heading), 0, Math.cos(this.walker.heading));
@@ -334,12 +390,25 @@ export class World {
 
     const yaw = heading + this.orbitYaw;
     const pitch = this.orbitPitch;
-    const distance = 8;
+    // The house interior is a small room (House.ts) — the usual outdoor
+    // chase distance/height would put the camera outside its walls (there's
+    // no ceiling, so a camera high enough looks straight over them).
+    const distance = this.indoors ? 4 : 8;
+    const vertBase = this.indoors ? 2.6 : 4.5;
     const horiz = distance * Math.cos(pitch);
-    const vert = 4.5 + distance * Math.sin(pitch);
+    const vert = vertBase + distance * Math.sin(pitch);
     const back = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).multiplyScalar(-horiz);
     const desired = target.position.clone().add(back).add(new THREE.Vector3(0, vert, 0));
-    this.rig.camera.position.lerp(desired, 0.15);
+    if (this.snapCameraNextFrame) {
+      // A teleport across a huge gap (entering/exiting the house interior,
+      // which lives ~3000 units away from the outdoor world) can't be
+      // covered by the usual per-frame lerp — the camera would spend many
+      // frames crawling across empty space, rendering nothing but fog.
+      this.rig.camera.position.copy(desired);
+      this.snapCameraNextFrame = false;
+    } else {
+      this.rig.camera.position.lerp(desired, 0.15);
+    }
     const lookAt = target.position.clone().add(new THREE.Vector3(0, 1.2, 0));
     this.rig.camera.lookAt(lookAt);
   }

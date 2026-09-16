@@ -20,6 +20,10 @@ export class Walker {
   depth = 0; // 0 = surface/ground, up to 3 = fully submerged
   wrapDeltaX = 0;
   wrapDeltaZ = 0;
+  // Le joueur est dans l'intérieur d'une maison — une poche de la scène
+  // loin du monde en boucle (House.ts) où wrapWorld/zoneAt/isInWater n'ont
+  // aucun sens et ramèneraient le joueur dehors malgré lui.
+  indoors = false;
 
   constructor(scene: THREE.Scene) {
     this.object.add(buildFigure());
@@ -36,7 +40,7 @@ export class Walker {
   }
 
   update(dt: number, input: InputManager, state: GameState) {
-    const inWater = isInWater(this.object.position.x, this.object.position.z);
+    const inWater = !this.indoors && isInWater(this.object.position.x, this.object.position.z);
     const wasSwim = state.mode === "swim";
 
     if (inWater && state.mode !== "swim") state.setMode("swim");
@@ -51,14 +55,19 @@ export class Walker {
     this.object.rotation.y = this.heading;
     const dir = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading));
     this.object.position.addScaledVector(dir, input.throttle * speed * dt);
-    resolveCollision(this.object.position, 0.4);
-    const wrapped = wrapWorld(this.object.position.x, this.object.position.z);
-    this.wrapDeltaX = wrapped.x - this.object.position.x;
-    this.wrapDeltaZ = wrapped.z - this.object.position.z;
-    this.object.position.x = wrapped.x;
-    this.object.position.z = wrapped.z;
-    state.terrain = zoneAt(this.object.position.x);
-    state.visitZone(state.terrain);
+    if (this.indoors) {
+      this.wrapDeltaX = 0;
+      this.wrapDeltaZ = 0;
+    } else {
+      resolveCollision(this.object.position, 0.4);
+      const wrapped = wrapWorld(this.object.position.x, this.object.position.z);
+      this.wrapDeltaX = wrapped.x - this.object.position.x;
+      this.wrapDeltaZ = wrapped.z - this.object.position.z;
+      this.object.position.x = wrapped.x;
+      this.object.position.z = wrapped.z;
+      state.terrain = zoneAt(this.object.position.x);
+      state.visitZone(state.terrain);
+    }
 
     if (state.mode === "swim") {
       const diving = input.isDown("Space") || input.touchDiving;

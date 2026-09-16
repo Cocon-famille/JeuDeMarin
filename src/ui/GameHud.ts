@@ -96,8 +96,13 @@ export class GameHud {
       this.driveHud.setFarmPrompt(this.world.farm.prompt(this.world.vehicle.def.kind) ?? this.world.grabPrompt());
     } else if (mode === "pedestrian") {
       this.pedestrianHud.update();
-      if (this.world.nearVehicle) this.pedestrianHud.setPrompt(copy.ui.reEnter, "E");
+      if (this.world.indoors) {
+        if (this.world.nearBed) this.pedestrianHud.setPrompt("Se coucher", "E");
+        else if (this.world.nearHouseExit) this.pedestrianHud.setPrompt("Sortir", "E");
+        else this.pedestrianHud.setPrompt(null);
+      } else if (this.world.nearVehicle) this.pedestrianHud.setPrompt(copy.ui.reEnter, "E");
       else if (this.world.nearShop) this.pedestrianHud.setPrompt("Voir la vitrine", "E");
+      else if (this.world.nearHouseDoor) this.pedestrianHud.setPrompt("Entrer", "E");
       else this.pedestrianHud.setPrompt(null);
     } else {
       this.swimHud.update();
