@@ -27,7 +27,6 @@ import {
   INTERIOR_SPAWN,
 } from "./House";
 import { VEHICLE_CATALOG, VehicleDef } from "./VehicleCatalog";
-import { copy } from "../content/copy";
 
 const ENTER_EXIT_RADIUS = 3.5;
 const GRAB_RADIUS = 4.5;
@@ -487,9 +486,6 @@ export class World {
           this.state.setMode("drive");
         } else if (this.nearHouseDoor && this.input.justPressed("KeyE")) {
           this.enterHouse();
-        }
-        if (this.nearShop) {
-          this.state.toast(copy.terrain.somethingShines);
         }
       }
       if (this.state.mode === "swim" && this.input.justPressed("KeyF")) {

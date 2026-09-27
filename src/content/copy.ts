@@ -19,7 +19,6 @@ export const copy = {
   terrain: {
     fieldReady: "Le champ est prêt",
     siteOpen: "Chantier ouvert",
-    somethingShines: "Quelque chose brille par là",
     goFurther: "Va voir plus loin",
     goFurtherSub: "Va voir plus loin, personne ne t'attend.",
   },
