@@ -49,6 +49,10 @@ export class Vehicle {
     this.wrapDeltaZ = 0;
   }
 
+  dispose(scene: THREE.Scene) {
+    scene.remove(this.object);
+  }
+
   swapTo(def: VehicleDef, scene: THREE.Scene) {
     scene.remove(this.object);
     this.object.clear();

@@ -53,6 +53,9 @@ export class World {
   indoors = false;
   trailer: Trailer | null = null;
   trailerDef: VehicleDef | null = null;
+  /** Other owned vehicles brought out of the shop and left parked in the world — a real job (e.g. loading a trailer) often needs more than one out at once. */
+  parkedVehicles: Vehicle[] = [];
+  private nearestVehicle: { vehicle: Vehicle; isActive: boolean } | null = null;
   private carrying: PlacedProp | null = null;
   private nearGrabbable: PlacedProp | null = null;
   onWheelDetected?: () => void;
@@ -103,19 +106,52 @@ export class World {
     this.state.setMode("drive");
   }
 
-  swapVehicle(def: VehicleDef) {
-    // Une remorque n'a pas de moteur — la traîner attelée derrière un
-    // véhicule qui ne peut plus la tracter n'a pas de sens.
-    if (this.trailer && !def.canTow) this.detachTrailer();
-    if (this.carrying && def.kind !== "pelleteuse") this.dropCarried();
-
-    if (this.state.mode === "drive") {
-      const { x, z } = this.vehicle.object.position;
-      this.vehicle.swapTo(def, this.rig.scene);
-      this.vehicle.respawnAt(x, z, this.vehicle.heading);
-    } else {
-      this.vehicle.swapTo(def, this.rig.scene);
+  /**
+   * A vehicle picked from the shop that isn't already out (active or
+   * parked) is delivered parked at an open lot slot — it doesn't replace
+   * whatever you're currently driving. That's what lets a real multi-step
+   * job (e.g. load a trailer with the pelleteuse, then tow it with the
+   * tractor) actually have every vehicle it needs present at once, instead
+   * of each pick destroying the last one.
+   */
+  bringOutVehicle(def: VehicleDef) {
+    if (def.id === this.vehicle.def.id || this.parkedVehicles.some((v) => v.def.id === def.id)) {
+      this.state.toast("Déjà dehors", "Va le chercher là où tu l'as garé.");
+      return;
     }
+    if (this.state.mode === "drive") {
+      this.state.toast("Descends d'abord", "Gare ton véhicule actuel avant d'en sortir un autre.");
+      return;
+    }
+    const slot = this.nextParkingSlot();
+    const parked = new Vehicle(def, this.rig.scene, this.state);
+    parked.respawnAt(slot.x, slot.z, slot.heading);
+    this.parkedVehicles.push(parked);
+    this.state.toast(`${def.label} livré`, "Va le chercher au parking pour le conduire.");
+  }
+
+  private nextParkingSlot(): { x: number; z: number; heading: number } {
+    const index = this.parkedVehicles.length;
+    const row = Math.floor(index / 4);
+    const col = index % 4;
+    return { x: PARKING_SPOT.x - 8 - col * 5.5, z: PARKING_SPOT.z - row * 6, heading: 0 };
+  }
+
+  /** Walking up to a parked vehicle and getting in: it becomes the active one, and whatever you were just driving stays behind, parked exactly where you left it. */
+  private enterParkedVehicle(target: Vehicle) {
+    const left = new Vehicle(this.vehicle.def, this.rig.scene, this.state);
+    left.respawnAt(this.vehicle.object.position.x, this.vehicle.object.position.z, this.vehicle.heading);
+    this.parkedVehicles.push(left);
+
+    this.parkedVehicles = this.parkedVehicles.filter((v) => v !== target);
+    const { x, z } = target.object.position;
+    const heading = target.heading;
+    this.vehicle.swapTo(target.def, this.rig.scene);
+    this.vehicle.respawnAt(x, z, heading);
+    target.dispose(this.rig.scene);
+
+    if (this.trailer && !this.vehicle.def.canTow) this.detachTrailer();
+    if (this.carrying && this.vehicle.def.kind !== "pelleteuse") this.dropCarried();
   }
 
   /** Attèle (ou détache si déjà attelée) une remorque possédée derrière le véhicule tracteur actuel. */
@@ -256,6 +292,16 @@ export class World {
         }
       }
 
+      // Other owned vehicles left parked in the world are solid too — you
+      // shouldn't be able to just drive through your own fleet.
+      for (const pv of this.parkedVehicles) {
+        if (
+          resolveAgainst(this.vehicle.object.position, this.vehicle.collisionRadius, pv.object.position.x, pv.object.position.z, pv.collisionRadius)
+        ) {
+          this.vehicle.speed *= 0.3;
+        }
+      }
+
       if (this.vehicle.def.kind === "pelleteuse") this.updatePelleteuse();
       else if (this.carrying) this.dropCarried();
 
@@ -281,6 +327,9 @@ export class World {
       if (this.trailer) {
         resolveAgainst(this.walker.object.position, 0.4, this.trailer.object.position.x, this.trailer.object.position.z, this.trailer.collisionRadius);
       }
+      for (const pv of this.parkedVehicles) {
+        resolveAgainst(this.walker.object.position, 0.4, pv.object.position.x, pv.object.position.z, pv.collisionRadius);
+      }
       const wp = this.walker.object.position;
 
       if (this.indoors) {
@@ -295,8 +344,21 @@ export class World {
         if (this.nearBed && this.input.justPressed("KeyE")) this.sleep();
         else if (this.nearHouseExit && this.input.justPressed("KeyE")) this.exitHouse();
       } else {
-        const vp = this.vehicle.object.position;
-        this.nearVehicle = wp.distanceTo(vp) < ENTER_EXIT_RADIUS && this.state.mode === "pedestrian";
+        this.nearestVehicle = null;
+        let bestDist = ENTER_EXIT_RADIUS;
+        const activeDist = wp.distanceTo(this.vehicle.object.position);
+        if (activeDist < bestDist) {
+          this.nearestVehicle = { vehicle: this.vehicle, isActive: true };
+          bestDist = activeDist;
+        }
+        for (const pv of this.parkedVehicles) {
+          const d = wp.distanceTo(pv.object.position);
+          if (d < bestDist) {
+            this.nearestVehicle = { vehicle: pv, isActive: false };
+            bestDist = d;
+          }
+        }
+        this.nearVehicle = !!this.nearestVehicle && this.state.mode === "pedestrian";
         this.nearShop = this.state.mode === "pedestrian" && isNearShop(wp.x, wp.z);
         this.nearHouseDoor =
           this.state.mode === "pedestrian" &&
@@ -304,8 +366,9 @@ export class World {
         this.nearBed = false;
         this.nearHouseExit = false;
 
-        if (this.nearVehicle && this.input.justPressed("KeyE")) {
-          this.vehicle.respawnAt(wp.x, wp.z, this.walker.heading);
+        if (this.nearVehicle && this.input.justPressed("KeyE") && this.nearestVehicle) {
+          if (!this.nearestVehicle.isActive) this.enterParkedVehicle(this.nearestVehicle.vehicle);
+          else this.vehicle.respawnAt(wp.x, wp.z, this.walker.heading);
           this.walker.object.visible = false;
           this.state.setMode("drive");
         } else if (this.nearHouseDoor && this.input.justPressed("KeyE")) {

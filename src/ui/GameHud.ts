@@ -45,7 +45,7 @@ export class GameHud {
           world.state.toast("Pas de prise en vue", "Monte dans un tracteur ou un camion pour l'atteler.");
         }
       } else {
-        world.swapVehicle(def);
+        world.bringOutVehicle(def);
       }
       this.shop.close();
     });
@@ -77,7 +77,8 @@ export class GameHud {
       return;
     }
     this.world.state.refuel();
-    this.shop.open(this.world.vehicle.def.id, this.world.trailerDef?.id ?? null);
+    const outIds = [this.world.vehicle.def.id, ...this.world.parkedVehicles.map((v) => v.def.id)];
+    this.shop.open(outIds, this.world.trailerDef?.id ?? null);
   }
 
   private toggleMinimap() {
