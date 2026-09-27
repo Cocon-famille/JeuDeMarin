@@ -5,8 +5,9 @@ import { WheelManager } from "../core/WheelManager";
 import { VehicleDef } from "./VehicleCatalog";
 import { buildVehicleMesh } from "./VehicleMeshFactory";
 import { addPlates } from "./Plate";
-import { isInWater, zoneAt, wrapWorld } from "./Terrain";
+import { isInWater, zoneAt, wrapWorld, PlacedProp } from "./Terrain";
 import { resolveCollision } from "./Collision";
+import { Trailer } from "./Trailer";
 
 const MAX_SPEED = 22; // m/s casual arcade top speed, not a real vehicle's
 const ACCEL = 10;
@@ -28,6 +29,11 @@ export class Vehicle {
   wrapDeltaZ = 0;
   length = 4;
   collisionRadius = 1.2;
+  /** Remorque attelée à CE véhicule précis — reste la sienne même quand il est garé et qu'on conduit autre chose. */
+  trailer: Trailer | null = null;
+  trailerDef: VehicleDef | null = null;
+  /** Caisse arrimée sur le plateau/la benne de CE véhicule (voir World.loadCargo) — distinct de la remorque. */
+  cargo: PlacedProp | null = null;
 
   constructor(def: VehicleDef, scene: THREE.Scene, state: GameState) {
     this.def = def;

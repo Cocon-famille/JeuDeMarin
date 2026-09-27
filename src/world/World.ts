@@ -32,6 +32,12 @@ import { copy } from "../content/copy";
 const ENTER_EXIT_RADIUS = 3.5;
 const GRAB_RADIUS = 4.5;
 const CARRY_HEIGHT = 1.6;
+const CARGO_LOAD_RADIUS = 5;
+const BED_FORWARD_OFFSET = -1.2;
+const BED_HEIGHT = 1.1;
+const TRAILER_BED_HEIGHT = 1;
+
+type LoadTarget = { kind: "truck"; vehicle: Vehicle } | { kind: "trailer"; vehicle: Vehicle };
 
 export class World {
   readonly rig: SceneRig;
@@ -51,13 +57,19 @@ export class World {
   nearBed = false;
   nearHouseExit = false;
   indoors = false;
-  trailer: Trailer | null = null;
-  trailerDef: VehicleDef | null = null;
   /** Other owned vehicles brought out of the shop and left parked in the world — a real job (e.g. loading a trailer) often needs more than one out at once. */
   parkedVehicles: Vehicle[] = [];
   private nearestVehicle: { vehicle: Vehicle; isActive: boolean } | null = null;
   private carrying: PlacedProp | null = null;
   private nearGrabbable: PlacedProp | null = null;
+
+  /** The active vehicle's own trailer/trailerDef — a trailer belongs to whichever specific Vehicle instance it's hitched to, so it stays put (and stays hitched) even while that vehicle is parked and something else is being driven. */
+  get trailer(): Trailer | null {
+    return this.vehicle.trailer;
+  }
+  get trailerDef(): VehicleDef | null {
+    return this.vehicle.trailerDef;
+  }
   onWheelDetected?: () => void;
   onWheelCalibrated?: () => void;
   onWheelStep?: (step: 0 | 1 | 2, progress: number) => void;
@@ -137,44 +149,57 @@ export class World {
     return { x: PARKING_SPOT.x - 8 - col * 5.5, z: PARKING_SPOT.z - row * 6, heading: 0 };
   }
 
-  /** Walking up to a parked vehicle and getting in: it becomes the active one, and whatever you were just driving stays behind, parked exactly where you left it. */
+  /**
+   * Walking up to a parked vehicle and getting in: it becomes the active
+   * one, and whatever you were just driving stays behind, parked exactly
+   * where you left it — including its own trailer and any cargo loaded on
+   * its bed, which travel with THAT vehicle rather than being dropped or
+   * destroyed just because it's no longer the one you're driving.
+   */
   private enterParkedVehicle(target: Vehicle) {
     const left = new Vehicle(this.vehicle.def, this.rig.scene, this.state);
     left.respawnAt(this.vehicle.object.position.x, this.vehicle.object.position.z, this.vehicle.heading);
+    left.trailer = this.vehicle.trailer;
+    left.trailerDef = this.vehicle.trailerDef;
+    left.cargo = this.vehicle.cargo;
     this.parkedVehicles.push(left);
 
     this.parkedVehicles = this.parkedVehicles.filter((v) => v !== target);
     const { x, z } = target.object.position;
     const heading = target.heading;
+    const { trailer, trailerDef, cargo } = target;
     this.vehicle.swapTo(target.def, this.rig.scene);
     this.vehicle.respawnAt(x, z, heading);
+    this.vehicle.trailer = trailer;
+    this.vehicle.trailerDef = trailerDef;
+    this.vehicle.cargo = cargo;
     target.dispose(this.rig.scene);
 
-    if (this.trailer && !this.vehicle.def.canTow) this.detachTrailer();
     if (this.carrying && this.vehicle.def.kind !== "pelleteuse") this.dropCarried();
   }
 
   /** Attèle (ou détache si déjà attelée) une remorque possédée derrière le véhicule tracteur actuel. */
   attachTrailer(def: VehicleDef) {
-    if (this.trailerDef?.id === def.id) {
+    if (this.vehicle.trailerDef?.id === def.id) {
       this.detachTrailer();
       return;
     }
-    if (this.trailer) this.trailer.dispose(this.rig.scene);
-    this.trailer = new Trailer(def, this.rig.scene);
-    this.trailerDef = def;
-    const hitchLength = this.vehicle.length / 2 + this.trailer.length / 2 + 0.4;
+    if (this.vehicle.trailer) this.vehicle.trailer.dispose(this.rig.scene);
+    const trailer = new Trailer(def, this.rig.scene);
+    this.vehicle.trailer = trailer;
+    this.vehicle.trailerDef = def;
+    const hitchLength = this.vehicle.length / 2 + trailer.length / 2 + 0.4;
     const forward = new THREE.Vector3(Math.sin(this.vehicle.heading), 0, Math.cos(this.vehicle.heading));
     const behind = this.vehicle.object.position.clone().addScaledVector(forward, -hitchLength);
-    this.trailer.placeAt(behind.x, behind.z, this.vehicle.heading);
+    trailer.placeAt(behind.x, behind.z, this.vehicle.heading);
     this.state.toast(`${def.label} attelée`, "Elle suit le véhicule — reviens la choisir dans la boutique pour la détacher.");
   }
 
   detachTrailer() {
-    if (!this.trailer) return;
-    this.trailer.dispose(this.rig.scene);
-    this.trailer = null;
-    this.trailerDef = null;
+    if (!this.vehicle.trailer) return;
+    this.vehicle.trailer.dispose(this.rig.scene);
+    this.vehicle.trailer = null;
+    this.vehicle.trailerDef = null;
     this.state.toast("Remorque détachée");
   }
 
@@ -194,7 +219,11 @@ export class World {
       this.carrying.obstacle.x = carryPos.x;
       this.carrying.obstacle.z = carryPos.z;
       this.nearGrabbable = null;
-      if (this.input.justPressed("KeyE")) this.dropCarried();
+      if (this.input.justPressed("KeyE")) {
+        const target = this.findLoadTarget();
+        if (target) this.loadCargo(target);
+        else this.dropCarried();
+      }
       return;
     }
 
@@ -210,6 +239,11 @@ export class World {
     }
     this.nearGrabbable = nearest;
     if (nearest && this.input.justPressed("KeyE")) {
+      // The crate might already be arrimée sur un plateau/une remorque —
+      // clear whichever bed still thinks it's holding it before the
+      // pelleteuse picks it back up, or that bed's per-frame follow update
+      // would keep yanking it back onto the truck every frame.
+      this.clearCargoOwner(nearest);
       this.carrying = nearest;
       this.state.toast("Chargement attrapé", "Repose-le avec E.");
     }
@@ -224,10 +258,69 @@ export class World {
     this.carrying = null;
   }
 
+  /** Cherche un plateau/une benne/une remorque libre à portée pour y arrimer ce qu'on porte. */
+  private findLoadTarget(): LoadTarget | null {
+    const pos = this.vehicle.object.position;
+    let best: LoadTarget | null = null;
+    let bestDist = CARGO_LOAD_RADIUS;
+    for (const pv of this.parkedVehicles) {
+      if (pv.def.canCarryCargo && !pv.cargo) {
+        const d = pos.distanceTo(pv.object.position);
+        if (d < bestDist) {
+          best = { kind: "truck", vehicle: pv };
+          bestDist = d;
+        }
+      }
+      if (pv.trailer && !pv.trailer.cargo) {
+        const d = pos.distanceTo(pv.trailer.object.position);
+        if (d < bestDist) {
+          best = { kind: "trailer", vehicle: pv };
+          bestDist = d;
+        }
+      }
+    }
+    return best;
+  }
+
+  private loadCargo(target: LoadTarget) {
+    if (!this.carrying) return;
+    const crate = this.carrying;
+    this.carrying = null;
+    if (target.kind === "truck") {
+      target.vehicle.cargo = crate;
+      this.placeCargoOn(crate, target.vehicle.object.position, target.vehicle.heading, BED_FORWARD_OFFSET, BED_HEIGHT);
+    } else {
+      const trailer = target.vehicle.trailer!;
+      trailer.cargo = crate;
+      this.placeCargoOn(crate, trailer.object.position, trailer.heading, 0, TRAILER_BED_HEIGHT);
+    }
+    this.state.toast("Chargement arrimé", "Il suivra le véhicule.");
+  }
+
+  private clearCargoOwner(crate: PlacedProp) {
+    if (this.vehicle.cargo === crate) this.vehicle.cargo = null;
+    if (this.vehicle.trailer?.cargo === crate) this.vehicle.trailer.cargo = null;
+    for (const pv of this.parkedVehicles) {
+      if (pv.cargo === crate) pv.cargo = null;
+      if (pv.trailer?.cargo === crate) pv.trailer.cargo = null;
+    }
+  }
+
+  private placeCargoOn(cargo: PlacedProp, position: THREE.Vector3, heading: number, forwardOffset: number, height: number) {
+    const dir = new THREE.Vector3(Math.sin(heading), 0, Math.cos(heading));
+    const p = position.clone().addScaledVector(dir, forwardOffset);
+    cargo.object.position.set(p.x, height, p.z);
+    cargo.object.rotation.y = heading;
+    cargo.obstacle.x = p.x;
+    cargo.obstacle.z = p.z;
+  }
+
   /** Texte + touche pour le CTA du HUD pendant qu'on conduit la pelleteuse. */
   grabPrompt(): { text: string; key?: string } | null {
     if (this.vehicle.def.kind !== "pelleteuse") return null;
-    if (this.carrying) return { text: "Poser le chargement", key: "E" };
+    if (this.carrying) {
+      return this.findLoadTarget() ? { text: "Charger dans le véhicule", key: "E" } : { text: "Poser le chargement", key: "E" };
+    }
     if (this.nearGrabbable) return { text: "Attraper", key: "E" };
     return null;
   }
@@ -293,14 +386,32 @@ export class World {
       }
 
       // Other owned vehicles left parked in the world are solid too — you
-      // shouldn't be able to just drive through your own fleet.
+      // shouldn't be able to just drive through your own fleet (or a
+      // trailer left hitched to one of them).
       for (const pv of this.parkedVehicles) {
         if (
           resolveAgainst(this.vehicle.object.position, this.vehicle.collisionRadius, pv.object.position.x, pv.object.position.z, pv.collisionRadius)
         ) {
           this.vehicle.speed *= 0.3;
         }
+        if (
+          pv.trailer &&
+          resolveAgainst(
+            this.vehicle.object.position,
+            this.vehicle.collisionRadius,
+            pv.trailer.object.position.x,
+            pv.trailer.object.position.z,
+            pv.trailer.collisionRadius,
+          )
+        ) {
+          this.vehicle.speed *= 0.3;
+        }
       }
+
+      // A crate loaded on this vehicle's own bed, or on its hitched
+      // trailer's bed, rides along wherever it goes.
+      if (this.vehicle.cargo) this.placeCargoOn(this.vehicle.cargo, this.vehicle.object.position, this.vehicle.heading, BED_FORWARD_OFFSET, BED_HEIGHT);
+      if (this.trailer?.cargo) this.placeCargoOn(this.trailer.cargo, this.trailer.object.position, this.trailer.heading, 0, TRAILER_BED_HEIGHT);
 
       if (this.vehicle.def.kind === "pelleteuse") this.updatePelleteuse();
       else if (this.carrying) this.dropCarried();
@@ -329,6 +440,9 @@ export class World {
       }
       for (const pv of this.parkedVehicles) {
         resolveAgainst(this.walker.object.position, 0.4, pv.object.position.x, pv.object.position.z, pv.collisionRadius);
+        if (pv.trailer) {
+          resolveAgainst(this.walker.object.position, 0.4, pv.trailer.object.position.x, pv.trailer.object.position.z, pv.trailer.collisionRadius);
+        }
       }
       const wp = this.walker.object.position;
 

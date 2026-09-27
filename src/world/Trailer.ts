@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { VehicleDef } from "./VehicleCatalog";
 import { buildVehicleMesh } from "./VehicleMeshFactory";
+import { PlacedProp } from "./Terrain";
 
 /**
  * A towed trailer: no engine, no steering input of its own — it's dragged
@@ -14,6 +15,8 @@ export class Trailer {
   heading = 0;
   length = 4;
   collisionRadius = 1.2;
+  /** Caisse arrimée sur le plateau de la remorque (voir World.loadCargo). */
+  cargo: PlacedProp | null = null;
 
   constructor(def: VehicleDef, scene: THREE.Scene) {
     const built = buildVehicleMesh(def);
