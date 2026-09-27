@@ -173,7 +173,11 @@ export class GameState {
 
   tick(dt: number) {
     // 1 seconde réelle = 1 minute in-game — une journée dure 24 min.
-    this.clockMinutes = (this.clockMinutes + dt * 60) % 1440;
+    // (dt est déjà en secondes ; le ×60 en trop faisait avancer une HEURE
+    // par seconde réelle, un jour complet en 24 secondes au lieu de 24 min —
+    // l'horloge changeait si vite qu'elle donnait l'impression d'afficher
+    // minutes:secondes plutôt que heures:minutes.)
+    this.clockMinutes = (this.clockMinutes + dt) % 1440;
   }
 
   get clockLabel(): string {
