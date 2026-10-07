@@ -5,12 +5,18 @@ import { loadModel } from "./ModelLoader";
 import { registerObstacle } from "./Collision";
 
 const BUILDING_TYPES = "abcdefghij".split("").map((letter) => `/models/buildings/building-type-${letter}.glb`);
+const ROAD_TEXTURE_URL = "/textures/road-straight.png";
 
 const SUBURB_COLOR = 0x6f9a54;
-const ROAD_COLOR = 0x484d55;
+const ROAD_COLOR = 0x434e54; // asphalt color sampled from the road texture, used for plain intersection squares
 const ROAD_WIDTH = 6;
 const BLOCK = 90;
 const HOUSE_COLORS = [0xe8d9c0, 0xd9c6a5, 0xc9b896, 0xefe3d0, 0xd8cdb8, 0xc7d6c2];
+
+const roadTexture = new THREE.TextureLoader().load(ROAD_TEXTURE_URL);
+roadTexture.colorSpace = THREE.SRGBColorSpace;
+roadTexture.wrapS = THREE.RepeatWrapping;
+roadTexture.wrapT = THREE.RepeatWrapping;
 
 /**
  * Au-delà des trois terrains (x/z dans CORE_BOUNDS), le monde continue :
@@ -38,22 +44,91 @@ function addGroundFrame(group: THREE.Group) {
 function addRoadGrid(group: THREE.Group) {
   const c = CORE_BOUNDS;
   const half = ROAD_WIDTH / 2;
-  for (let gx = -WORLD_HALF + BLOCK; gx < WORLD_HALF; gx += BLOCK) {
+  const gxList: number[] = [];
+  const gzList: number[] = [];
+  for (let gx = -WORLD_HALF + BLOCK; gx < WORLD_HALF; gx += BLOCK) gxList.push(gx);
+  for (let gz = -WORLD_HALF + BLOCK; gz < WORLD_HALF; gz += BLOCK) gzList.push(gz);
+
+  // Each line is built as short segments between consecutive crossings
+  // (never one long strip through all of them) — two full-length textured
+  // strips overlapping at every crossing z-fought against each other,
+  // rendering as a dashed, flickering mess right where roads meet.
+  for (const gx of gxList) {
     if (gx > c.minX && gx < c.maxX) {
-      addPlane(group, gx - half, gx + half, -WORLD_HALF, c.minZ, ROAD_COLOR, 0.02);
-      addPlane(group, gx - half, gx + half, c.maxZ, WORLD_HALF, ROAD_COLOR, 0.02);
+      addVerticalSegments(group, gx, -WORLD_HALF, c.minZ, gzList);
+      addVerticalSegments(group, gx, c.maxZ, WORLD_HALF, gzList);
     } else {
-      addPlane(group, gx - half, gx + half, -WORLD_HALF, WORLD_HALF, ROAD_COLOR, 0.02);
+      addVerticalSegments(group, gx, -WORLD_HALF, WORLD_HALF, gzList);
     }
   }
-  for (let gz = -WORLD_HALF + BLOCK; gz < WORLD_HALF; gz += BLOCK) {
+  for (const gz of gzList) {
     if (gz > c.minZ && gz < c.maxZ) {
-      addPlane(group, -WORLD_HALF, c.minX, gz - half, gz + half, ROAD_COLOR, 0.02);
-      addPlane(group, c.maxX, WORLD_HALF, gz - half, gz + half, ROAD_COLOR, 0.02);
+      addHorizontalSegments(group, gz, -WORLD_HALF, c.minX, gxList);
+      addHorizontalSegments(group, gz, c.maxX, WORLD_HALF, gxList);
     } else {
-      addPlane(group, -WORLD_HALF, WORLD_HALF, gz - half, gz + half, ROAD_COLOR, 0.02);
+      addHorizontalSegments(group, gz, -WORLD_HALF, WORLD_HALF, gxList);
     }
   }
+  // A plain asphalt square wherever a vertical and horizontal strip actually
+  // cross (skipped only where both fall inside the core zone, where
+  // neither strip is drawn at all).
+  for (const gx of gxList) {
+    const gxInCore = gx > c.minX && gx < c.maxX;
+    for (const gz of gzList) {
+      const gzInCore = gz > c.minZ && gz < c.maxZ;
+      if (gxInCore && gzInCore) continue;
+      addPlane(group, gx - half, gx + half, gz - half, gz + half, ROAD_COLOR, 0.025);
+    }
+  }
+}
+
+/** Splits one vertical line's span into straight segments, stopping half a road-width short of every crossing along it so the segment never overlaps that crossing's asphalt square. */
+function addVerticalSegments(group: THREE.Group, gx: number, spanMinZ: number, spanMaxZ: number, gzList: number[]) {
+  const half = ROAD_WIDTH / 2;
+  const crossings = gzList.filter((gz) => gz > spanMinZ && gz < spanMaxZ).sort((a, b) => a - b);
+  const points = [spanMinZ, ...crossings, spanMaxZ];
+  for (let i = 0; i < points.length - 1; i++) {
+    const segStart = points[i] + (i === 0 ? 0 : half);
+    const segEnd = points[i + 1] - (i + 2 === points.length ? 0 : half);
+    addRoadStrip(group, gx - half, gx + half, segStart, segEnd, true);
+  }
+}
+
+/** Same as addVerticalSegments, for a horizontal line. */
+function addHorizontalSegments(group: THREE.Group, gz: number, spanMinX: number, spanMaxX: number, gxList: number[]) {
+  const half = ROAD_WIDTH / 2;
+  const crossings = gxList.filter((gx) => gx > spanMinX && gx < spanMaxX).sort((a, b) => a - b);
+  const points = [spanMinX, ...crossings, spanMaxX];
+  for (let i = 0; i < points.length - 1; i++) {
+    const segStart = points[i] + (i === 0 ? 0 : half);
+    const segEnd = points[i + 1] - (i + 2 === points.length ? 0 : half);
+    addRoadStrip(group, segStart, segEnd, gz - half, gz + half, false);
+  }
+}
+
+/** A straight asphalt strip, textured and tiled along its length (the Kenney road texture repeats cleanly top-to-bottom). */
+function addRoadStrip(group: THREE.Group, minX: number, maxX: number, minZ: number, maxZ: number, vertical: boolean) {
+  const width = maxX - minX;
+  const depth = maxZ - minZ;
+  if (width <= 0 || depth <= 0) return;
+  const length = vertical ? depth : width;
+  // Always build the geometry in the texture's own orientation (narrow
+  // ROAD_WIDTH across local X, the repeating road running along local Y) and
+  // spin the whole mesh for horizontal strips, rather than rotating the
+  // texture itself — combining a 90° texture.rotation with a highly
+  // non-uniform repeat (1 vs. up to a few hundred) shears the UVs instead of
+  // swapping axes, which rendered as a diagonal dashed mess.
+  const geo = new THREE.PlaneGeometry(ROAD_WIDTH, length);
+  const tex = roadTexture.clone();
+  tex.needsUpdate = true;
+  tex.repeat.set(1, length / ROAD_WIDTH);
+  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.x = -Math.PI / 2;
+  if (!vertical) mesh.rotateZ(Math.PI / 2);
+  mesh.position.set(minX + width / 2, 0.02, minZ + depth / 2);
+  mesh.receiveShadow = true;
+  group.add(mesh);
 }
 
 function addPlane(group: THREE.Group, minX: number, maxX: number, minZ: number, maxZ: number, color: number, y: number) {
