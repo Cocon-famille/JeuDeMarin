@@ -15,8 +15,8 @@ export class Trailer {
   heading = 0;
   length = 4;
   collisionRadius = 1.2;
-  /** Caisse arrimée sur le plateau de la remorque (voir World.loadCargo). */
-  cargo: PlacedProp | null = null;
+  /** Caisses arrimées sur le plateau de la remorque (voir World.loadCargo). Plusieurs peuvent tenir côte à côte. */
+  cargo: PlacedProp[] = [];
 
   constructor(def: VehicleDef, scene: THREE.Scene) {
     const built = buildVehicleMesh(def);

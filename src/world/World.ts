@@ -36,6 +36,10 @@ const CARGO_LOAD_RADIUS = 5;
 const BED_FORWARD_OFFSET = -1.2;
 const BED_HEIGHT = 1.1;
 const TRAILER_BED_HEIGHT = 1;
+/** Combien de caisses tiennent côte à côte sur un même plateau/benne/remorque. */
+const MAX_CARGO_PER_BED = 3;
+/** Écart entre deux caisses voisines (la caisse fait 2.2 de large, +marge). */
+const CARGO_SLOT_SPACING = 2.6;
 const BED_LIE_HEIGHT = 0.88;
 export const SLEEP_DURATION = 1.6;
 
@@ -263,20 +267,20 @@ export class World {
     this.carrying = null;
   }
 
-  /** Cherche un plateau/une benne/une remorque libre à portée pour y arrimer ce qu'on porte. */
+  /** Cherche un plateau/une benne/une remorque avec de la place à portée pour y arrimer ce qu'on porte. */
   private findLoadTarget(): LoadTarget | null {
     const pos = this.vehicle.object.position;
     let best: LoadTarget | null = null;
     let bestDist = CARGO_LOAD_RADIUS;
     for (const pv of this.parkedVehicles) {
-      if (pv.def.canCarryCargo && !pv.cargo) {
+      if (pv.def.canCarryCargo && pv.cargo.length < MAX_CARGO_PER_BED) {
         const d = pos.distanceTo(pv.object.position);
         if (d < bestDist) {
           best = { kind: "truck", vehicle: pv };
           bestDist = d;
         }
       }
-      if (pv.trailer && !pv.trailer.cargo) {
+      if (pv.trailer && pv.trailer.cargo.length < MAX_CARGO_PER_BED) {
         const d = pos.distanceTo(pv.trailer.object.position);
         if (d < bestDist) {
           best = { kind: "trailer", vehicle: pv };
@@ -292,32 +296,48 @@ export class World {
     const crate = this.carrying;
     this.carrying = null;
     if (target.kind === "truck") {
-      target.vehicle.cargo = crate;
-      this.placeCargoOn(crate, target.vehicle.object.position, target.vehicle.heading, BED_FORWARD_OFFSET, BED_HEIGHT);
+      target.vehicle.cargo.push(crate);
+      this.layoutCargo(target.vehicle.cargo, target.vehicle.object.position, target.vehicle.heading, BED_FORWARD_OFFSET, BED_HEIGHT);
     } else {
       const trailer = target.vehicle.trailer!;
-      trailer.cargo = crate;
-      this.placeCargoOn(crate, trailer.object.position, trailer.heading, 0, TRAILER_BED_HEIGHT);
+      trailer.cargo.push(crate);
+      this.layoutCargo(trailer.cargo, trailer.object.position, trailer.heading, 0, TRAILER_BED_HEIGHT);
     }
     this.state.toast("Chargement arrimé", "Il suivra le véhicule.");
   }
 
   private clearCargoOwner(crate: PlacedProp) {
-    if (this.vehicle.cargo === crate) this.vehicle.cargo = null;
-    if (this.vehicle.trailer?.cargo === crate) this.vehicle.trailer.cargo = null;
+    const removeFrom = (arr: PlacedProp[]) => {
+      const i = arr.indexOf(crate);
+      if (i !== -1) arr.splice(i, 1);
+    };
+    removeFrom(this.vehicle.cargo);
+    if (this.vehicle.trailer) removeFrom(this.vehicle.trailer.cargo);
     for (const pv of this.parkedVehicles) {
-      if (pv.cargo === crate) pv.cargo = null;
-      if (pv.trailer?.cargo === crate) pv.trailer.cargo = null;
+      removeFrom(pv.cargo);
+      if (pv.trailer) removeFrom(pv.trailer.cargo);
     }
   }
 
-  private placeCargoOn(cargo: PlacedProp, position: THREE.Vector3, heading: number, forwardOffset: number, height: number) {
-    const dir = new THREE.Vector3(Math.sin(heading), 0, Math.cos(heading));
-    const p = position.clone().addScaledVector(dir, forwardOffset);
-    cargo.object.position.set(p.x, height, p.z);
-    cargo.object.rotation.y = heading;
-    cargo.obstacle.x = p.x;
-    cargo.obstacle.z = p.z;
+  /**
+   * Range toutes les caisses d'un même plateau/benne/remorque côte à côte,
+   * centrées sur le point d'arrimage — recalculé à chaque appel (en reposant
+   * sur l'index dans le tableau) pour que retirer une caisse du milieu
+   * recentre proprement celles qui restent au lieu de laisser un trou.
+   */
+  private layoutCargo(cargo: PlacedProp[], position: THREE.Vector3, heading: number, forwardOffset: number, height: number) {
+    const forward = new THREE.Vector3(Math.sin(heading), 0, Math.cos(heading));
+    const right = new THREE.Vector3(Math.cos(heading), 0, -Math.sin(heading));
+    const anchor = position.clone().addScaledVector(forward, forwardOffset);
+    const count = cargo.length;
+    cargo.forEach((crate, i) => {
+      const side = (i - (count - 1) / 2) * CARGO_SLOT_SPACING;
+      const p = anchor.clone().addScaledVector(right, side);
+      crate.object.position.set(p.x, height, p.z);
+      crate.object.rotation.y = heading;
+      crate.obstacle.x = p.x;
+      crate.obstacle.z = p.z;
+    });
   }
 
   /** Texte + touche pour le CTA du HUD pendant qu'on conduit la pelleteuse. */
@@ -438,8 +458,8 @@ export class World {
 
       // A crate loaded on this vehicle's own bed, or on its hitched
       // trailer's bed, rides along wherever it goes.
-      if (this.vehicle.cargo) this.placeCargoOn(this.vehicle.cargo, this.vehicle.object.position, this.vehicle.heading, BED_FORWARD_OFFSET, BED_HEIGHT);
-      if (this.trailer?.cargo) this.placeCargoOn(this.trailer.cargo, this.trailer.object.position, this.trailer.heading, 0, TRAILER_BED_HEIGHT);
+      if (this.vehicle.cargo.length) this.layoutCargo(this.vehicle.cargo, this.vehicle.object.position, this.vehicle.heading, BED_FORWARD_OFFSET, BED_HEIGHT);
+      if (this.trailer?.cargo.length) this.layoutCargo(this.trailer.cargo, this.trailer.object.position, this.trailer.heading, 0, TRAILER_BED_HEIGHT);
 
       if (this.vehicle.def.kind === "pelleteuse") this.updatePelleteuse();
       else if (this.carrying) this.dropCarried();

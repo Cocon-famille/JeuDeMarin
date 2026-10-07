@@ -32,8 +32,8 @@ export class Vehicle {
   /** Remorque attelée à CE véhicule précis — reste la sienne même quand il est garé et qu'on conduit autre chose. */
   trailer: Trailer | null = null;
   trailerDef: VehicleDef | null = null;
-  /** Caisse arrimée sur le plateau/la benne de CE véhicule (voir World.loadCargo) — distinct de la remorque. */
-  cargo: PlacedProp | null = null;
+  /** Caisses arrimées sur le plateau/la benne de CE véhicule (voir World.loadCargo) — distinct de la remorque. Plusieurs peuvent tenir côte à côte. */
+  cargo: PlacedProp[] = [];
 
   constructor(def: VehicleDef, scene: THREE.Scene, state: GameState) {
     this.def = def;
