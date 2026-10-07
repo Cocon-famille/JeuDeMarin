@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { World } from "../world/World";
+import { World, SLEEP_DURATION } from "../world/World";
 import { DriveHud } from "./DriveHud";
 import { WalkHud } from "./WalkHud";
 import { ToastStack } from "./Toast";
@@ -13,9 +13,11 @@ import { TasksPanel } from "./TasksPanel";
 import { SHOP_POSITION } from "../world/Shop";
 import { HOUSE_DOOR_POSITION } from "../world/House";
 import { copy } from "../content/copy";
+import { el } from "./dom";
 
 const SHOP_ICON_POINT = SHOP_POSITION.clone().add(new THREE.Vector3(0, 3, 0));
 const HOUSE_ICON_POINT = HOUSE_DOOR_POSITION.clone().add(new THREE.Vector3(0, 3, 0));
+const ROOSTER_URL = "/audio/rooster-crow.mp3";
 
 export class GameHud {
   private driveHud: DriveHud;
@@ -29,6 +31,7 @@ export class GameHud {
   private worldIcon: WorldIcon;
   private bank: BankPanel;
   private tasks: TasksPanel;
+  private sleepFade: HTMLElement;
   private minimapExpanded = false;
 
   constructor(hudRoot: HTMLElement, private world: World) {
@@ -61,10 +64,13 @@ export class GameHud {
     });
     this.minimap = new MiniMap(hudRoot);
     this.worldIcon = new WorldIcon(hudRoot);
+    this.sleepFade = el("div", { className: "tt-sleep-fade" });
+    hudRoot.appendChild(this.sleepFade);
 
     world.onWheelDetected = () => this.wheelBanner.showDetected();
     world.onWheelStep = (step, progress) => this.wheelBanner.setStepProgress(step, progress);
     world.onWheelCalibrated = () => this.wheelBanner.hideCalibration();
+    world.onSleepStart = () => this.playSleepTransition();
 
     this.bank.resumePendingIfAny();
 
@@ -79,6 +85,26 @@ export class GameHud {
     this.world.state.refuel();
     const outIds = [this.world.vehicle.def.id, ...this.world.parkedVehicles.map((v) => v.def.id)];
     this.shop.open(outIds, this.world.trailerDef?.id ?? null);
+  }
+
+  /**
+   * Fades the whole screen to black while the player lies down in bed
+   * (hiding World's instant teleport back onto their feet when the nap
+   * timer ends), crowing the rooster right around the darkest point, then
+   * fades back in — timed off World.SLEEP_DURATION so the two stay in sync
+   * without GameHud needing to know World's internal clock.
+   */
+  private playSleepTransition() {
+    this.sleepFade.classList.add("tt-sleep-fade-in");
+    const rooster = new Audio(ROOSTER_URL);
+    window.setTimeout(() => {
+      rooster.play().catch(() => {
+        // Autoplay can be blocked before any user gesture — not worth surfacing.
+      });
+    }, 500);
+    window.setTimeout(() => {
+      this.sleepFade.classList.remove("tt-sleep-fade-in");
+    }, SLEEP_DURATION * 1000);
   }
 
   private toggleMinimap() {

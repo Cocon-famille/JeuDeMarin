@@ -35,6 +35,8 @@ const CARGO_LOAD_RADIUS = 5;
 const BED_FORWARD_OFFSET = -1.2;
 const BED_HEIGHT = 1.1;
 const TRAILER_BED_HEIGHT = 1;
+const BED_LIE_HEIGHT = 0.88;
+export const SLEEP_DURATION = 1.6;
 
 type LoadTarget = { kind: "truck"; vehicle: Vehicle } | { kind: "trailer"; vehicle: Vehicle };
 
@@ -56,6 +58,8 @@ export class World {
   nearBed = false;
   nearHouseExit = false;
   indoors = false;
+  private sleeping = false;
+  private sleepTimer = 0;
   /** Other owned vehicles brought out of the shop and left parked in the world — a real job (e.g. loading a trailer) often needs more than one out at once. */
   parkedVehicles: Vehicle[] = [];
   private nearestVehicle: { vehicle: Vehicle; isActive: boolean } | null = null;
@@ -72,6 +76,7 @@ export class World {
   onWheelDetected?: () => void;
   onWheelCalibrated?: () => void;
   onWheelStep?: (step: 0 | 1 | 2, progress: number) => void;
+  onSleepStart?: () => void;
 
   /** Vue conducteur : caméra rigide, fixée au pare-brise, plutôt que la caméra suiveuse orbitable. */
   viewMode: "chase" | "cockpit" = "chase";
@@ -339,9 +344,29 @@ export class World {
     this.snapCameraNextFrame = true;
   }
 
+  /**
+   * Lays the walker flat on the bed (rotated onto its back, no standing
+   * animation for this) rather than just teleporting the clock forward
+   * while the character stays on its feet. update() skips the walker's own
+   * movement/input handling entirely while sleeping, so nothing fights
+   * this pose until the short nap timer wakes them back up.
+   */
   private sleep() {
+    if (this.sleeping) return;
+    this.sleeping = true;
+    this.sleepTimer = SLEEP_DURATION;
+    this.walker.object.position.set(INTERIOR_BED_ZONE.x, BED_LIE_HEIGHT, INTERIOR_BED_ZONE.z + 0.6);
+    this.walker.object.rotation.set(-Math.PI / 2, 0, 0);
+    this.nearBed = false;
+    this.nearHouseExit = false;
+    this.onSleepStart?.();
+  }
+
+  private wakeUp() {
+    this.sleeping = false;
     this.state.clockMinutes = 8 * 60;
-    this.state.toast("Bonne nuit !", "Tu te réveilles à 8h00.");
+    this.walker.respawnAt(INTERIOR_BED_ZONE.x, INTERIOR_BED_ZONE.z, Math.PI);
+    this.state.toast("Bonjour !", "Il est 8h00.");
   }
 
   update(dt: number) {
@@ -427,6 +452,13 @@ export class World {
       this.nearVehicle = false;
       this.nearShop = false;
     } else {
+      if (this.sleeping) {
+        this.sleepTimer -= dt;
+        if (this.sleepTimer <= 0) this.wakeUp();
+        this.updateCamera(dt);
+        this.rig.render();
+        return;
+      }
       this.walker.update(dt, this.input, this.state);
       // The parked vehicle (and trailer) can't be a static Collision
       // obstacle — it moves — so it never blocked the pedestrian from

@@ -33,7 +33,10 @@ export class Walker {
   respawnAt(x: number, z: number, heading = 0) {
     this.object.position.set(x, 0, z);
     this.heading = heading;
-    this.object.rotation.y = heading;
+    // A full reset, not just the heading — e.g. World.sleep() tips the
+    // object onto its back (rotation.x) to lie in bed, and only respawnAt
+    // ever puts the walker back on its feet.
+    this.object.rotation.set(0, heading, 0);
     this.depth = 0;
     this.wrapDeltaX = 0;
     this.wrapDeltaZ = 0;

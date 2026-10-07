@@ -676,3 +676,21 @@
   align-items: center;
   gap: 8px;
 }
+
+/* sleep transition — fade to black, hold, fade back in while the player
+   stands back up out of frame (see GameHud.playSleepTransition) */
+.tt-sleep-fade {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+/* #hud-root > * {pointer-events:auto} in brand.css beats a bare class rule
+   (ID beats class) — match its specificity, same fix as .tt-hud above. */
+#hud-root > .tt-sleep-fade {
+  pointer-events: none;
+}
+.tt-sleep-fade.tt-sleep-fade-in {
+  opacity: 1;
+}
