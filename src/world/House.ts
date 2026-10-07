@@ -42,8 +42,13 @@ export const INTERIOR_EXIT_ZONE = {
 export const INTERIOR_BED_ZONE = {
   x: INTERIOR_ORIGIN.x + BED_LOCAL.x,
   z: INTERIOR_ORIGIN.z + BED_LOCAL.y,
-  radius: 1.7,
+  // Bigger than the bed's own collision box below (World.ts) so "Se
+  // coucher" still triggers once you're pushed back to its edge, from
+  // any side.
+  radius: 2.2,
 };
+/** Half-extents of the bed's solid footprint (frame is 2.2×3.2, plus a little margin) — World.ts keeps the walker from stepping into it while walking around indoors. */
+export const INTERIOR_BED_COLLISION = { halfX: 1.4, halfZ: 1.9 };
 export const INTERIOR_BOUNDS = {
   minX: INTERIOR_ORIGIN.x - ROOM_HALF_X + 0.6,
   maxX: INTERIOR_ORIGIN.x + ROOM_HALF_X - 0.6,

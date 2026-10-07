@@ -21,6 +21,7 @@ import {
   HOUSE_DOOR_POSITION,
   HOUSE_ENTER_RADIUS,
   HOUSE_POSITION,
+  INTERIOR_BED_COLLISION,
   INTERIOR_BED_ZONE,
   INTERIOR_BOUNDS,
   INTERIOR_EXIT_ZONE,
@@ -483,6 +484,17 @@ export class World {
       if (this.indoors) {
         wp.x = THREE.MathUtils.clamp(wp.x, INTERIOR_BOUNDS.minX, INTERIOR_BOUNDS.maxX);
         wp.z = THREE.MathUtils.clamp(wp.z, INTERIOR_BOUNDS.minZ, INTERIOR_BOUNDS.maxZ);
+        // The bed itself isn't in the collision registry (it's indoors, far
+        // from everything that registry tracks) — push back out to its
+        // nearest edge if walking put the character inside its footprint.
+        const bedDX = wp.x - INTERIOR_BED_ZONE.x;
+        const bedDZ = wp.z - INTERIOR_BED_ZONE.z;
+        if (Math.abs(bedDX) < INTERIOR_BED_COLLISION.halfX && Math.abs(bedDZ) < INTERIOR_BED_COLLISION.halfZ) {
+          const toXEdge = INTERIOR_BED_COLLISION.halfX - Math.abs(bedDX);
+          const toZEdge = INTERIOR_BED_COLLISION.halfZ - Math.abs(bedDZ);
+          if (toXEdge < toZEdge) wp.x = INTERIOR_BED_ZONE.x + Math.sign(bedDX || 1) * INTERIOR_BED_COLLISION.halfX;
+          else wp.z = INTERIOR_BED_ZONE.z + Math.sign(bedDZ || 1) * INTERIOR_BED_COLLISION.halfZ;
+        }
         this.nearVehicle = false;
         this.nearShop = false;
         this.nearHouseDoor = false;
