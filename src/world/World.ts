@@ -365,7 +365,10 @@ export class World {
   private wakeUp() {
     this.sleeping = false;
     this.state.clockMinutes = 8 * 60;
-    this.walker.respawnAt(INTERIOR_BED_ZONE.x, INTERIOR_BED_ZONE.z, Math.PI);
+    // Stand up at the foot of the bed, not on its own center coordinates —
+    // respawnAt there put the standing character's whole body clipping
+    // through the bed frame/mattress instead of beside it.
+    this.walker.respawnAt(INTERIOR_BED_ZONE.x, INTERIOR_BED_ZONE.z + 2.1, 0);
     this.state.toast("Bonjour !", "Il est 8h00.");
   }
 
